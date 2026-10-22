@@ -15,7 +15,7 @@ Open the local URL Vite prints and press **Play** once to enable browser audio. 
 
 ```js
 const leadWave = waveform("sin(2*pi*f*t)")
-const pulse = pattern("4(2,8,0) 2(3,8,1) 1(2,8,2)").scale("c minor")
+const pulse = pattern([[4,2,8,0], [2,3,8,1], [1,2,8,2]]).scale("c minor")
 const lead = connect(leadWave, pulse)
 
 main(() => {
@@ -23,7 +23,7 @@ main(() => {
 })
 ```
 
-Use valid JavaScript: pattern text and musical scales are strings, so they need quotes. `main(() => {})` is called at each internal step; it does not pass beat or bar values. Pattern groups follow `degree(beats, segments, offset)`. `pattern()` also accepts the compact `x`, `X`, `o`, `.`, and `2`–`9` rhythm symbols. `euclid(degree, beats, segments, offset)` creates a single group.
+Use valid JavaScript: pattern text and musical scales are strings, so they need quotes. `main(() => {})` is called at each internal step; it does not pass beat or bar values. Pattern groups are `[degree, beats, segments, offset]` tuples, so you can write them without a pattern string. `pattern()` also accepts a quoted shorthand or the compact `x`, `X`, `o`, `.`, and `2`–`9` rhythm symbols. `euclid(degree, beats, segments, offset)` creates a single group.
 
 Multiplying a pattern variable by `2` doubles its playback speed; multiplying it by `.5` halves the speed. The editor applies this to declared pattern variables in `connect()`, for example `connect(wave, pulse * 2)`. Other JavaScript arithmetic keeps its usual meaning.
 
