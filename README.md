@@ -11,21 +11,28 @@ npm run dev
 
 Open the local URL Vite prints and press **Play** once to enable browser audio. **Ctrl+Enter** toggles play and pause. Edits made during playback are compiled at the next bar; code errors keep the last working program running.
 
-## First pattern
+## Corrected full sample
+
+The complete starter example is in [`examples/scone-starter.js`](examples/scone-starter.js). It is also the editor's **Load sample** button and can be downloaded from the Guide panel. It demonstrates a waveform, 200 Hz filter, envelope, scale degrees as array tuples, a doubled-speed pattern, the live keyboard/MIDI piano, hit-based pauses, the three sound-reactive toys, per-sound displays, and grayscale visuals.
+
+The core syntax is:
 
 ```js
-const leadWave = waveform("sin(2*pi*f*t)")
-const pulse = pattern([[4,2,8,0], [2,3,8,1], [1,2,8,2]]).scale("c minor")
-const lead = connect(leadWave, pulse)
+const sampleSound = waveform("softWave", "sin(2*pi*f*t)")
+const filterForm = filterform("lowPass200", "1/(1 + s*(1/(2*pi*200)))")
+const samplePattern = pattern([[1,3,8,0], [5,2,8,1], [3,2,8,3]])
+  .scale("c minor")
+  .filter(filterForm)
+const Sample = connect(sampleSound, samplePattern)
+const Sample2 = connect(sampleSound, samplePattern * 2)
 
 main(() => {
-  lead.play()
+  Sample.play()
+  Sample2.play()
 })
 ```
 
-Use valid JavaScript: pattern text and musical scales are strings, so they need quotes. `main(() => {})` is called at each internal step; it does not pass beat or bar values. Pattern groups are `[degree, beats, segments, offset]` tuples, so you can write them without a pattern string. `pattern()` also accepts a quoted shorthand or the compact `x`, `X`, `o`, `.`, and `2`–`9` rhythm symbols. `euclid(degree, beats, segments, offset)` creates a single group.
-
-Multiplying a pattern variable by `2` doubles its playback speed; multiplying it by `.5` halves the speed. The editor applies this to declared pattern variables in `connect()`, for example `connect(wave, pulse * 2)`. Other JavaScript arithmetic keeps its usual meaning.
+Patterns may use tuple arrays to avoid quoting the rhythm. Each tuple is `[scale degree, hits, segments, offset]`. `main(() => {})` is called on the internal step clock without beat or bar arguments. Pattern multipliers `* 2` and `* 0.5` double and halve speed.
 
 ## Waveform, filter, and envelope lab
 
