@@ -22,7 +22,7 @@ export class AudioEngine {
   private filterForms=new Map<string,ConvolverNode>()
   private distortions=new Map<string,WaveShaperNode>()
   private envelopes=new Map<string,Float32Array>()
-  private delays = new Set<string>()
+  private delays = new Map<string, { delay: DelayNode; loop: GainNode; send: GainNode }>()
   private noise: AudioBuffer | null = null
   private impulse: AudioBuffer | null = null
   private active = new Map<string, boolean>()
@@ -132,7 +132,7 @@ export class AudioEngine {
   /** Set a target track to dip briefly whenever the source track fires. */
   duck(target: string, source: string, amount = .58, release = .22): void { this.ducks.set(source, { target, amount: Math.max(0, Math.min(1, amount)), release: Math.max(.03, release) }); this.bus(target) }
   /** Add a tempo-aligned feedback delay send to one track bus. */
-  delay(name:string,seconds=.24,feedback=.34,wet=.2):void{if(!this.context)return;const id=`${name}:${seconds}:${feedback}:${wet}`;if(this.delays.has(id))return;const bus=this.bus(name),delay=this.context.createDelay(2),loop=this.context.createGain(),send=this.context.createGain();delay.delayTime.value=Math.max(.015,Math.min(1.5,seconds));loop.gain.value=Math.max(0,Math.min(.88,feedback));send.gain.value=Math.max(0,Math.min(.8,wet));bus.connect(delay);delay.connect(loop);loop.connect(delay);delay.connect(send);send.connect(this.master!);this.delays.add(id)}
+  delay(name:string,seconds=.24,feedback=.34,wet=.2):void{if(!this.context)return;const bus=this.bus(name);let nodes=this.delays.get(name);if(!nodes){const delay=this.context.createDelay(2),loop=this.context.createGain(),send=this.context.createGain();delay.connect(loop);loop.connect(delay);delay.connect(send);send.connect(this.master!);nodes={delay,loop,send};this.delays.set(name,nodes)}nodes.delay.delayTime.setTargetAtTime(Math.max(.015,Math.min(1.5,seconds)),this.context.currentTime,.01);nodes.loop.gain.setTargetAtTime(Math.max(0,Math.min(.88,feedback)),this.context.currentTime,.01);nodes.send.gain.setTargetAtTime(Math.max(0,Math.min(.8,wet)),this.context.currentTime,.01);this.rebuildRoute(name,bus)}
   /** Set master amplitude. Zero is used by hold-to-silence. */
   setMasterLevel(level: number, ramp = .012): void {
     this.masterLevel = Math.max(0, Math.min(1, level)); if (!this.context || !this.master) return
@@ -150,8 +150,9 @@ export class AudioEngine {
     if(!this.context)return
     const ctx=this.context,bus=this.bus(name),size=256,half=size/2
     const mag=Array.from({length:half+1},(_,k)=>{
-      const index=Math.min(response.length-1,Math.floor(k/half*(response.length-1)))
-      const db=Math.max(-1,Math.min(0,response[index]??0))*60
+      const hz=Math.max(20,k/size*ctx.sampleRate),position=Math.max(0,Math.min(1,Math.log(hz/20)/Math.log(20000/20)))*(response.length-1),lo=Math.floor(position),hi=Math.min(response.length-1,lo+1),fraction=position-lo
+      const normalized=(response[lo]??0)*(1-fraction)+(response[hi]??0)*fraction
+      const db=Math.max(-1,Math.min(0,normalized))*60
       return 10**(db/20)
     })
     const impulse=new Float32Array(size)
@@ -164,8 +165,9 @@ export class AudioEngine {
   setDistortion(name:string,curve:Float32Array):void{if(!this.context)return;const bus=this.bus(name);let node=this.distortions.get(name);if(!node){node=this.context.createWaveShaper();node.oversample='4x';this.distortions.set(name,node)}node.curve=curve;this.rebuildRoute(name,bus)}
   /** Store an amplitude contour applied to subsequent notes on this instrument. */
   setEnvelope(name:string,values:Float32Array):void{this.envelopes.set(name,values)}
-  private rebuildRoute(name:string,bus:GainNode):void{bus.disconnect();const analyser=this.analysers.get(name);if(analyser)bus.connect(analyser);let tail:AudioNode=bus;const filter=this.filterForms.get(name),distortion=this.distortions.get(name);if(filter){tail.connect(filter);tail=filter}if(distortion){tail.connect(distortion);tail=distortion}tail.connect(this.master!)}
+  private rebuildRoute(name:string,bus:GainNode):void{bus.disconnect();const analyser=this.analysers.get(name);if(analyser)bus.connect(analyser);let tail:AudioNode=bus;const filter=this.filterForms.get(name),distortion=this.distortions.get(name);if(filter){tail.connect(filter);tail=filter}if(distortion){tail.connect(distortion);tail=distortion}tail.connect(this.master!);const delay=this.delays.get(name);if(delay)tail.connect(delay.delay)}
 
+  private applyEnvelope(name:string,gain:GainNode,at:number,duration:number,peak:number):boolean{const values=this.envelopes.get(name);if(!values?.length)return false;const length=Math.max(.005,duration);gain.gain.cancelScheduledValues(at);gain.gain.setValueAtTime(Math.max(0,values[0]*peak),at);for(let i=1;i<values.length;i++)gain.gain.linearRampToValueAtTime(Math.max(0,values[i]*peak),at+length*i/(values.length-1));return true}
   private route(source: AudioNode, name: string, reverb = 0): void {
     const bus = this.bus(name)
     if (reverb > 0 && this.impulse && this.context) { const dry = this.context.createGain(), wet = this.context.createGain(), convolver = this.context.createConvolver(); convolver.buffer = this.impulse; dry.gain.value = 1 - reverb * .5; wet.gain.value = reverb; source.connect(dry); source.connect(convolver); dry.connect(bus); convolver.connect(wet); wet.connect(bus) }
@@ -175,18 +177,18 @@ export class AudioEngine {
     const ctx = this.context!, osc = ctx.createOscillator(), gain = ctx.createGain(); osc.type = 'sine'
     const hz = name.toLowerCase() === 'kick' || name.toLowerCase() === 'bd' ? 155 : 440 * 2 ** ((midi - 69) / 12)
     osc.frequency.setValueAtTime(hz, at); osc.frequency.exponentialRampToValueAtTime(Math.max(28, hz * .29), at + duration * .58)
-    gain.gain.setValueAtTime(.0001, at); gain.gain.exponentialRampToValueAtTime(velocity, at + .004); gain.gain.exponentialRampToValueAtTime(.0001, at + duration)
+    if(!this.applyEnvelope(name,gain,at,duration,velocity)){gain.gain.setValueAtTime(.0001, at); gain.gain.exponentialRampToValueAtTime(velocity, at + .004); gain.gain.exponentialRampToValueAtTime(.0001, at + duration)}
     osc.connect(gain); this.route(gain, name); osc.start(at); osc.stop(at + duration + .02)
   }
   private noiseHit(name: string, at: number, velocity: number, cutoff: number, duration: number): void {
     const ctx = this.context!, src = ctx.createBufferSource(), filter = ctx.createBiquadFilter(), gain = ctx.createGain(); src.buffer = this.noise
     filter.type = 'highpass'; filter.frequency.value = cutoff; filter.Q.value = .72
-    gain.gain.setValueAtTime(.0001, at); gain.gain.exponentialRampToValueAtTime(velocity, at + .003); gain.gain.exponentialRampToValueAtTime(.0001, at + duration)
+    if(!this.applyEnvelope(name,gain,at,duration,velocity)){gain.gain.setValueAtTime(.0001, at); gain.gain.exponentialRampToValueAtTime(velocity, at + .003); gain.gain.exponentialRampToValueAtTime(.0001, at + duration)}
     src.connect(filter); filter.connect(gain); this.route(gain, name); src.start(at); src.stop(at + duration + .01)
   }
   private tone(name: string, at: number, hz: number, duration: number, velocity: number, type: OscillatorType): void {
     const ctx = this.context!, osc = ctx.createOscillator(), gain = ctx.createGain(); osc.type = type; osc.frequency.value = hz
-    gain.gain.setValueAtTime(.0001, at); gain.gain.exponentialRampToValueAtTime(velocity, at + .004); gain.gain.exponentialRampToValueAtTime(.0001, at + duration)
+    if(!this.applyEnvelope(name,gain,at,duration,velocity)){gain.gain.setValueAtTime(.0001, at); gain.gain.exponentialRampToValueAtTime(velocity, at + .004); gain.gain.exponentialRampToValueAtTime(.0001, at + duration)}
     osc.connect(gain); this.route(gain, name); osc.start(at); osc.stop(at + duration + .01)
   }
   private synth(name: string, midi: number, at: number, velocity: number, options: PlayOptions): void {
@@ -196,17 +198,18 @@ export class AudioEngine {
     osc.frequency.setValueAtTime(Math.max(20, hz), at); if (name === '808' || name === 'bass' || name === 'acid') osc.frequency.setTargetAtTime(hz * (options.pitch ?? 1), at + .01, .04)
     sub.type = name === 'supersaw' ? 'sawtooth' : 'square'; sub.frequency.value = hz * (name === 'supersaw' ? 1.006 : 2); sub.detune.value = name === 'supersaw' ? -13 : 0
     filter.type = 'lowpass'; filter.frequency.setValueAtTime(name === 'acid' ? 2400 : name === '808' || name === 'bass' ? 520 : 8400, at); filter.frequency.exponentialRampToValueAtTime(name === 'acid' ? 420 : 1200, at + duration * .75); filter.Q.value = name === 'acid' ? 15 : 7
-    const envelope=this.envelopes.get(name);if(envelope?.length){const length=duration/speed;gain.gain.setValueAtTime(Math.max(.0001,envelope[0]*velocity),at);for(let i=1;i<envelope.length;i++)gain.gain.linearRampToValueAtTime(Math.max(.0001,envelope[i]*velocity),at+length*i/(envelope.length-1))}else{gain.gain.setValueAtTime(.0001, at); gain.gain.exponentialRampToValueAtTime(velocity * (name === '808' || name === 'bass' ? .72 : .26), at + .006); gain.gain.exponentialRampToValueAtTime(.0001, at + duration / speed)}
+    const peak=velocity*(name==='808'||name==='bass'?.72:.26);if(!this.applyEnvelope(name,gain,at,duration/speed,peak)){gain.gain.setValueAtTime(.0001, at); gain.gain.exponentialRampToValueAtTime(peak, at + .006); gain.gain.exponentialRampToValueAtTime(.0001, at + duration / speed)}
     const curve = new Float32Array(256); for (let i = 0; i < curve.length; i++) { const x = i * 2 / (curve.length - 1) - 1; curve[i] = Math.tanh(x * (name === '808' || name === 'acid' ? 5 : 2.6)) }
     drive.curve = curve; drive.oversample = '4x'; osc.connect(filter); if (name === 'supersaw' || name === '808' || name === 'bass') sub.connect(filter); filter.connect(drive); drive.connect(gain); this.route(gain, name, options.reverb ?? 0)
     osc.start(at); osc.stop(at + duration / speed + .03); if (name === 'supersaw' || name === '808' || name === 'bass') { sub.start(at); sub.stop(at + duration / speed + .03) }
   }
   private playBuffer(name: string, buffer: AudioBuffer, at: number, velocity: number, options: PlayOptions): void {
-    const ctx = this.context!, src = ctx.createBufferSource(), gain = ctx.createGain(),wavetable=this.wavetables.has(name); src.buffer = options.reverse ? this.reverseBuffer(buffer) : buffer
-    const frequency=440*(options.pitch??1)
-    src.playbackRate.value = wavetable ? frequency*buffer.length/ctx.sampleRate : Math.max(.1, options.speed ?? 1) * (options.pitch ?? 1); src.loop=wavetable;gain.gain.value = velocity; src.connect(gain); this.route(gain, name, options.reverb ?? 0)
-    if(wavetable){const envelope=this.envelopes.get(name),duration=(options.duration??.22)/Math.max(.1,options.speed??1);if(envelope?.length){gain.gain.setValueAtTime(Math.max(.0001,envelope[0]*velocity),at);for(let i=1;i<envelope.length;i++)gain.gain.linearRampToValueAtTime(Math.max(.0001,envelope[i]*velocity),at+duration*i/(envelope.length-1))}src.start(at);src.stop(at+duration)}
-    else if(options.duration===undefined)src.start(at,Math.max(0,options.start??0));else src.start(at,Math.max(0,options.start??0),options.duration)
+    const ctx=this.context!,src=ctx.createBufferSource(),gain=ctx.createGain(),wavetable=this.wavetables.has(name),offset=Math.max(0,options.start??0)
+    src.buffer=options.reverse?this.reverseBuffer(buffer):buffer
+    const frequency=440*(options.pitch??1),rate=wavetable?frequency*buffer.length/ctx.sampleRate:Math.max(.1,options.speed??1)*(options.pitch??1)
+    src.playbackRate.value=rate;src.loop=wavetable;gain.gain.value=velocity;src.connect(gain);this.route(gain,name,options.reverb??0)
+    if(wavetable){const duration=(options.duration??.22)/Math.max(.1,options.speed??1);this.applyEnvelope(name,gain,at,duration,velocity);src.start(at);src.stop(at+duration)}
+    else{const sourceDuration=options.duration??Math.max(.001,buffer.duration-offset),duration=sourceDuration/Math.max(.1,rate);this.applyEnvelope(name,gain,at,duration,velocity);if(options.duration===undefined)src.start(at,offset);else src.start(at,offset,options.duration)}
   }
   private reverseBuffer(buffer: AudioBuffer): AudioBuffer {
     const ctx = this.context!, result = ctx.createBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate)

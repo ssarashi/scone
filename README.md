@@ -9,7 +9,7 @@ npm install
 npm run dev
 ```
 
-Open the Vite URL and press **Play** or **Ctrl+Enter** to start or pause. **Ctrl+Z**, **Ctrl+C**, and **Ctrl+V** undo, copy, and paste while the editor is focused. Editor changes are picked up at the next bar; a code error leaves the last working program running.
+Open the Vite URL and press **Play** to start. Click **Pause** or press **Ctrl+Esc** to pause. Edit code freely; changes stay as drafts until **Ctrl+Enter** applies them. While playing, accepted code takes effect at the next unscheduled sequencer step, not automatically at a bar. **Ctrl+Z**, **Ctrl+C**, and **Ctrl+V** undo, copy, and paste in the editor. A code error keeps the last applied program running.
 
 ## Starter song
 
@@ -47,7 +47,6 @@ main(
     screen.shapes("spheres", sample)
     screen.scope(sample)
     screen.spectrum(sample)
-    screen.pianoRoll(kickBeat)
   }
 )
 ```
@@ -58,7 +57,7 @@ All `const` names start with a lowercase letter. `irand(8)` picks an integer fro
 
 Click a `waveform`, `filterform`, or `envelope` definition in the editor to open its graph. You can type an equation in **Equation** mode or draw by holding the primary mouse button on the graph. The graph only records pointer movement while pressed and smooths the curve. Drawing over an existing equation starts from the displayed curve.
 
-After drawing, scone fits an equation and displays the graph and measured Pearson correlation **r**. Waveform, filter, and envelope fits target **r ≥ 0.95**. Press **Enter** in the equation field to write the equation into the selected code definition; editing the field alone does not change the code. Filter equations are functions of frequency: the graph spans 20 Hz to 20 kHz logarithmically and uses a decibel scale. For example, `1/(1 + s*(1/(2*pi*200)))` is a 200 Hz low-pass transfer function. Envelope equations use normalized time `t` from 0 to 1.
+After drawing, scone fits an equation and displays the graph and measured Pearson correlation **r**. Waveform, filter, and envelope fits target **r ≥ 0.95**. Press **Enter** in the equation field or click **Enter to update code** to write the equation into the selected definition. That edits the code draft only; press **Ctrl+Enter** to apply the draft to the running song. Typing without Enter does not change the code. Filter equations are functions of frequency: the graph spans 20 Hz to 20 kHz logarithmically and uses a decibel scale. For example, `1/(1 + s*(1/(2*pi*200)))` is a 200 Hz low-pass transfer function. Envelope equations use normalized time `t` from 0 to 1.
 
 The waveform lab includes an on-screen piano. Its keys play the current waveform definition directly, including an uncommitted drawing preview. The separate live/MIDI piano has been removed. scone does not provide an audio upload control or user sound bank.
 
@@ -68,7 +67,7 @@ The waveform lab includes an on-screen piano. Its keys play the current waveform
 | --- | --- |
 | `main(statements...)` | Runs its JavaScript statement block once per internal sequencer step. Use normal `if` blocks. |
 | `pattern(text)` | Parses scale groups like `1(3,8,0)` and unpitched groups like `(3,16,0)`. Groups are `degree(hits, segments, offset)`. |
-| `scale(name)` | Sets the key for a pattern, e.g. `.scale("c minor")`. Scales: minor, major, phrygian, harmonic minor, dorian, pentatonic, chromatic. |
+| `scale(name)` | Sets the key for a pattern, e.g. `.scale("c minor")`. Scales: major, minor, pentatonic, ritusen. Tonics include C, D, E, F, G, A, B (for example `.scale("d ritusen")`); sharp and flat spellings also work. `c:minor` is accepted alongside `c minor`. |
 | `connect(sound, pattern)` | Connects a built-in sound or waveform to a pattern. |
 | `waveform(name, equationOrSamples)` | Defines a repeating wavetable. `f` follows the played note pitch; `t` spans one cycle. |
 | `filterform(name, equationOrSamples)` | Defines a response over frequency, represented and drawn in dB. |
@@ -77,7 +76,6 @@ The waveform lab includes an on-screen piano. Its keys play the current waveform
 | `irand(max)` | Returns an integer from zero through `max - 1`. |
 | `screen.scope(sound)` | Draws the sound’s waveform as a full-window background layer in `#4B3A59`. |
 | `screen.spectrum(sound)` | Draws a scrolling grayscale spectrogram across the background. |
-| `screen.pianoRoll(sound)` | Draws the sound’s rhythm across the background in `#354A3D`. |
 | `screen.shapes(kind, sound)` | Bounces the hockey puck, wooden monkey, or blue sphere on hits. Kinds: `"puck"`, `"monkey"`, `"spheres"`. |
 
 ### Methods returned by `connect`
@@ -85,15 +83,15 @@ The waveform lab includes an on-screen piano. Its keys play the current waveform
 | Method | Purpose |
 | --- | --- |
 | `.play()` | Schedules the connected pattern for the current step. |
-| `.isPlaying()` | Returns true only if this connected sound has a non-muted hit queued on the current sequencer step. Call `.play()` before checking it in `main(...)`. |
+| `.isPlaying()` | Returns true only if this connected sound has a non-muted hit queued on the current sequencer step. Call `.play()` before checking it in `main(...)`; it is true only for that connection’s hit on this step. |
 | `.pause(seconds)` | Temporarily skips this sound for the given duration; with no duration it pauses until resumed. |
 | `.silence()` | Pauses until `.resume()` is called. |
 | `.resume()` | Resumes this connected sound. |
-| `.gain(value)` | Sets this sound’s level from 0 to 1. |
+| `.gain(value)` | Sets this sound’s track level from 0 to 1. It is applied after the voice and before track effects. |
 | `.filter(form)` | Applies a `filterform(...)` response. |
 | `.envelope(form)` | Applies an `envelope(...)` amplitude contour. |
 | `.distort(equation)` | Applies a waveshaper equation over `x` from -1 to 1. |
-| `.delay(seconds)` | Adds a feedback delay. |
+| `.delay(seconds)` | Adds or updates a feedback delay send after the track filters; seconds are clamped to 0.015–1.5. |
 
 Pattern multiplication controls speed: `melody * 2` plays twice as fast; `melody * 0.5` plays at half speed.
 

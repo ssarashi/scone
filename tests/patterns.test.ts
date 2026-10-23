@@ -15,7 +15,7 @@ describe('Euclidean pattern text', () => {
   })
   it('rejects compact symbols and invalid Euclidean values with clear errors', () => {
     expect(() => pattern('X...')).toThrow(/Euclidean groups/)
-    expect(() => pattern('0(2,8,0)')).toThrow(/scale degree must be a positive integer/)
+    expect(() => pattern('0(2,8,0)')).toThrow(/1-based scale degree/)
     expect(() => pattern('1(9,8,0)')).toThrow(/hits must be an integer/)
     expect(() => pattern('(2,0,0)')).toThrow(/segments must be an integer/)
     expect(() => degrees('1 nope 3')).toThrow(/Invalid scale degree/)
@@ -43,11 +43,22 @@ describe('global key and scale math', () => {
     expect(degreeToMidi(1,1,cMinor)).toBe(72)
   })
   it('supports enharmonic keys and named modes', () => {
-    expect(parseKey('f# phrygian').pitch).toBe(6)
+    expect(parseKey('f# ritusen').pitch).toBe(6)
     expect(parseKey('db major').pitch).toBe(1)
-    expect(parseKey('a harmonic minor').intervals).toEqual([0,2,3,5,7,8,11])
+    expect(parseKey('a ritusen').intervals).toEqual([0,2,5,7,9])
     expect(() => parseKey('h lydian')).toThrow(/Invalid key/)
     expect(() => parseKey('c blues')).toThrow(/Unknown scale/)
+  })
+  it('maps all natural tonics through all supported scales', () => {
+    const roots:Record<string,number>={c:0,d:2,e:4,f:5,g:7,a:9,b:11}
+    for (const [tonic,pitch] of Object.entries(roots)) for (const name of ['major','minor','pentatonic','ritusen']) {
+      const key=parseKey(`${tonic} ${name}`)
+      expect(key.pitch).toBe(pitch)
+      expect(degreeToMidi(1,0,key)%12).toBe(pitch)
+      expect(key.intervals.length).toBe(name==='major'||name==='minor'?7:5)
+    }
+    expect(parseKey('C:major').scale).toBe('major')
+    expect(degreeToMidi(3,0,parseKey('e ritusen'))%12).toBe(9)
   })
   it('quantizes notes to the active global key', () => {
     const gMinor = parseKey('g minor')

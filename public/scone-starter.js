@@ -1,4 +1,4 @@
-// An airy, slow synth loop. Press Play or Ctrl+Enter.
+// An airy, slow synth loop. Press Ctrl+Enter to apply; Play and Pause control transport.
 tempo(82)
 const sampleSound = waveform("softWave", "0.82*sin(2*pi*f*t) + 0.12*sin(4*pi*f*t)")
 const filterForm = filterform("airFilter", "1/(1 + s*(1/(2*pi*1400)))")
@@ -30,6 +30,5 @@ main(
     screen.shapes("spheres", sample)
     screen.scope(sample)
     screen.spectrum(sample)
-    screen.pianoRoll(kickBeat)
   }
 )

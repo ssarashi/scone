@@ -17,7 +17,7 @@ export function pattern(source: string): Pattern {
   if (!groups.length || remaining) throw new Error('Use Euclidean groups like "1(3,8,0)" for scale degrees or "(4,16,0)" for drums.')
   return make(groups.flatMap(([, degreeText, hitsText, segmentsText, offsetText]) => {
     const hits = Number(hitsText), segments = Number(segmentsText), offset = Number(offsetText)
-    if (degreeText !== undefined && (!Number.isSafeInteger(Number(degreeText)) || Number(degreeText) < 1)) throw new Error('A scale degree must be a positive integer.')
+    if (degreeText !== undefined && (!Number.isSafeInteger(Number(degreeText)) || Number(degreeText) < 1)) throw new Error('The first value in a pitched group is a 1-based scale degree (1 or higher); for drums, omit that value and use (hits,segments,offset).')
     if (!Number.isSafeInteger(offset)) throw new Error('Pattern offset must be a whole number.')
     const pulse = euclideanSteps(1, hits, segments, offset)
     return pulse.map(event => event.kind === 'rest' ? rest : degreeText ? ({kind:'degree',degree:Number(degreeText),octave:0,velocity:.78} as PatternEvent) : hitEvent())
@@ -32,7 +32,7 @@ function euclideanSteps(degree:number,beats:number,segments:number,offset:number
   const n=segments,k=beats,d=degree
   if(!Number.isInteger(n)||n<1||n>256)throw new Error('Pattern segments must be an integer from 1 to 256.')
   if(!Number.isInteger(k)||k<0||k>n)throw new Error(`Pattern hits must be an integer from 0 to ${n}.`)
-  if(!Number.isSafeInteger(d)||d<1)throw new Error('A scale degree must be a positive integer.')
+  if(!Number.isSafeInteger(d)||d<1)throw new Error('A scale degree must be a positive integer starting at 1.')
   if(!Number.isSafeInteger(offset))throw new Error('Pattern offset must be a whole number.')
   const o=((offset%n)+n)%n,base=Array.from({length:n},(_,step)=>Math.floor((step+1)*k/n)>Math.floor(step*k/n)),first=base.indexOf(true)
   if(k===0)return Array.from({length:n},()=>rest)
@@ -88,14 +88,13 @@ export function join(...patterns: Pattern[]): Pattern {
 
 export const SCALES: Record<string, readonly number[]> = {
   minor: [0, 2, 3, 5, 7, 8, 10], major: [0, 2, 4, 5, 7, 9, 11],
-  phrygian: [0, 1, 3, 5, 7, 8, 10], 'harmonic minor': [0, 2, 3, 5, 7, 8, 11],
-  dorian: [0, 2, 3, 5, 7, 9, 10], pentatonic: [0, 3, 5, 7, 10], chromatic: [...Array(12).keys()],
+  pentatonic: [0, 3, 5, 7, 10], ritusen: [0, 2, 5, 7, 9],
 }
 export type MusicKey = { tonic: string; pitch: number; scale: string; intervals: readonly number[] }
-/** Parse a global tonic and scale, for example "f# phrygian". */
+/** Parse a global tonic and scale, for example "c minor" or "d:ritusen". */
 export function parseKey(source: string): MusicKey {
-  const m = source.trim().toLowerCase().match(/^([a-g](?:#|b)?)(?:\s+(.+))?$/)
-  if (!m || pitchClass[m[1]] === undefined) throw new Error(`Invalid key "${source}". Use a key such as "c minor" or "f# phrygian".`)
+  const m = source.trim().toLowerCase().replace(/\s*:\s*/, ' ').match(/^([a-g](?:#|b)?)(?:\s+(.+))?$/)
+  if (!m || pitchClass[m[1]] === undefined) throw new Error(`Invalid key "${source}". Use a tonic A–G and a scale such as "c minor" or "d ritusen".`)
   const tonic = m[1], scale = m[2] || 'minor', intervals = SCALES[scale]
   if (!intervals) throw new Error(`Unknown scale "${scale}". Available scales: ${Object.keys(SCALES).join(', ')}.`)
   return { tonic, pitch: pitchClass[tonic], scale, intervals }
