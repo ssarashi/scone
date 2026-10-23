@@ -1,36 +1,36 @@
-// scone — type code, press Play (or Ctrl+Enter), and hear the pattern.
+// scone starter: press Play (or Ctrl+Enter) to start the song.
 tempo(84)
 
-// These equations can be edited in the Sound Lab, or replace them with drawings.
 const sampleSound = waveform("softWave", "sin(2*pi*f*t) + 0.12*sin(3*pi*f*t)")
 const filterForm = filterform("lowPass200", "1/(1 + s*(1/(2*pi*200)))")
 const envelopeForm = envelope("slowEnvelope", "(1-t)^2")
 
-// Each text group is scaleDegree(hits, segments, offset).
-// Here degree 1 has 3 hits across 8 steps, beginning at offset 0.
-const samplePattern = pattern("1(3,8,0) 5(2,8,1) 3(2,8,3)")
+// Melody groups use degree(hits, segments, offset).
+const melody = pattern("1(3,8,0) 5(2,8,1) 3(2,8,3)")
+const Sample = connect(sampleSound, melody)
   .scale("c minor")
   .filter(filterForm)
-
-const Sample = connect(sampleSound, samplePattern)
   .envelope(envelopeForm)
   .gain(0.55)
   .delay(0.18)
-const Sample2 = connect(sampleSound, samplePattern * 2) // twice the pattern speed
-const Kick_beat = connect("kick", pattern("X..."))
 
-// Optional: enable the computer keyboard and connected MIDI device as a piano.
+// Drum groups omit the degree: (hits, segments, offset).
+const kickPattern = pattern("(4,16,0)")
+const Kick_beat = connect("kick", kickPattern).gain(0.9)
+
+// Pattern multiplication is computation: *2 is twice as fast; *0.5 is half speed.
+const fastMelody = connect(sampleSound, melody * 2).scale("c minor").gain(0.2)
+
+// Optional scale-locked keyboard and MIDI input.
 const SampleLive = live(sampleSound, "c minor")
 SampleLive.on()
 
-// main accepts connected sounds and asks each one to play its pattern per step.
-main(Sample, Sample2, Kick_beat)
+// Connected sounds play their pattern on each sequencer step.
+main(Sample, Kick_beat, fastMelody)
 
-// These visuals and meters are linked directly to their individual sounds.
-screen.shapes("puck", Kick_beat)
-screen.shapes("monkey", Sample)
-screen.shapes("spheres", Sample2)
 screen.scope(Sample)
 screen.spectrum(Sample)
 screen.pianoRoll(Kick_beat)
+screen.shapes("puck", Kick_beat)
+screen.shapes("spheres", Sample)
 screen.oscillator(Sample)

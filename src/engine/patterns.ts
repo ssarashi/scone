@@ -10,25 +10,18 @@ const rest: PatternEvent = Object.freeze({ kind: 'rest' })
 const hitEvent = (velocity = 0.78, roll = 1): PatternEvent => ({ kind: 'hit', velocity, roll })
 const make = (steps: PatternEvent[]): Pattern => Object.freeze({ kind: 'pattern', steps: Object.freeze(steps) })
 
-/** Convert x/X/o/digit rhythm glyphs into immutable sequencer steps. */
+/** Parse pitched `degree(hits,segments,offset)` and unpitched `(hits,segments,offset)` groups. */
 export function pattern(source: string): Pattern {
-  const groups = [...source.matchAll(/(\d+)\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(-?\d+)\s*\)/g)]
-  if (groups.length && source.replace(/\s+/g, '').replace(/\d+\(\d+,\d+,-?\d+\)/g, '') === '') {
-    return make(groups.flatMap(([, degree, beats, segments, offset]) => euclideanSteps(Number(degree), Number(beats), Number(segments), Number(offset))))
-  }
-  const glyphs = source.replace(/\s+/g, '').replace(/[|]/g, '').toLowerCase()
-  const steps: PatternEvent[] = []
-  for (let i = 0; i < glyphs.length; i++) {
-    const original = source.replace(/\s+/g, '').replace(/[|]/g, '')[i]
-    const glyph = glyphs[i]
-    if (glyph === '.' || glyph === '-') steps.push(rest)
-    else if (glyph === 'x') steps.push(hitEvent(original === 'X' ? 1 : 0.78))
-    else if (glyph === 'o') steps.push(hitEvent(0.42))
-    else if (/^[2-9]$/.test(glyph)) steps.push(hitEvent(0.7, Number(glyph)))
-    else throw new Error(`Unknown pattern symbol "${original}" at step ${i + 1}.`)
-  }
-  if (!steps.length) throw new Error('A pattern needs at least one step.')
-  return make(steps)
+  const groups = [...source.matchAll(/(?:(\d+)\s*)?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(-?\d+)\s*\)/g)]
+  const remaining = source.replace(/\s+/g, '').replace(/(?:\d+)?\(\d+,\d+,-?\d+\)/g, '')
+  if (!groups.length || remaining) throw new Error('Use Euclidean groups like "1(3,8,0)" for scale degrees or "(4,16,0)" for drums.')
+  return make(groups.flatMap(([, degreeText, hitsText, segmentsText, offsetText]) => {
+    const hits = Number(hitsText), segments = Number(segmentsText), offset = Number(offsetText)
+    if (degreeText !== undefined && (!Number.isSafeInteger(Number(degreeText)) || Number(degreeText) < 1)) throw new Error('A scale degree must be a positive integer.')
+    if (!Number.isSafeInteger(offset)) throw new Error('Pattern offset must be a whole number.')
+    const pulse = euclideanSteps(1, hits, segments, offset)
+    return pulse.map(event => event.kind === 'rest' ? rest : degreeText ? ({kind:'degree',degree:Number(degreeText),octave:0,velocity:.78} as PatternEvent) : hitEvent())
+  }))
 }
 
 /** Make one Euclidean scale-degree rhythm; offset rotates the distributed hits. */
@@ -36,8 +29,14 @@ export function euclidean(degree:number,beats:number,segments:number,offset=0):P
   return make(euclideanSteps(degree,beats,segments,offset))
 }
 function euclideanSteps(degree:number,beats:number,segments:number,offset:number):PatternEvent[]{
-  const n=Math.max(1,Math.min(256,Math.trunc(segments))),k=Math.max(0,Math.min(n,Math.trunc(beats))),d=Math.max(1,Math.trunc(degree)),o=((Math.trunc(offset)%n)+n)%n
-  return Array.from({length:n},(_,step)=>((Math.floor(((step+o+1)*k)/n)>Math.floor(((step+o)*k)/n))?{kind:'degree' as const,degree:d,octave:0,velocity:.78}:rest))
+  const n=segments,k=beats,d=degree
+  if(!Number.isInteger(n)||n<1||n>256)throw new Error('Pattern segments must be an integer from 1 to 256.')
+  if(!Number.isInteger(k)||k<0||k>n)throw new Error(`Pattern hits must be an integer from 0 to ${n}.`)
+  if(!Number.isSafeInteger(d)||d<1)throw new Error('A scale degree must be a positive integer.')
+  if(!Number.isSafeInteger(offset))throw new Error('Pattern offset must be a whole number.')
+  const o=((offset%n)+n)%n,base=Array.from({length:n},(_,step)=>Math.floor((step+1)*k/n)>Math.floor(step*k/n)),first=base.indexOf(true)
+  if(k===0)return Array.from({length:n},()=>rest)
+  return Array.from({length:n},(_,step)=>base[(step+first-o+n*2)%n]?{kind:'degree' as const,degree:d,octave:0,velocity:.78}:rest)
 }
 
 /** Build a scale-degree melody. Dots/rests are silent; degrees start at 1. */
