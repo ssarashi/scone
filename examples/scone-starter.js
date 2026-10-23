@@ -1,36 +1,38 @@
-// scone starter: press Play (or Ctrl+Enter) to start the song.
-tempo(84)
+// An airy, slow synth loop. Press Play or Ctrl+Enter.
+tempo(82)
 
-const sampleSound = waveform("softWave", "sin(2*pi*f*t) + 0.12*sin(3*pi*f*t)")
-const filterForm = filterform("lowPass200", "1/(1 + s*(1/(2*pi*200)))")
-const envelopeForm = envelope("slowEnvelope", "(1-t)^2")
+const sampleSound = waveform("softWave", "0.82*sin(2*pi*f*t) + 0.12*sin(4*pi*f*t)")
+const filterForm = filterform("airFilter", "1/(1 + s*(1/(2*pi*1400)))")
+const envelopeForm = envelope("longFade", "(1-t)^1.6")
 
-// Melody groups use degree(hits, segments, offset).
-const melody = pattern("1(3,8,0) 5(2,8,1) 3(2,8,3)")
+const melody = pattern("1(2,8,0) 3(1,8,3) 5(2,8,5) 7(1,8,2)")
 const Sample = connect(sampleSound, melody)
   .scale("c minor")
   .filter(filterForm)
   .envelope(envelopeForm)
-  .gain(0.55)
-  .delay(0.18)
+  .gain(0.38)
+  .delay(0.34)
 
-// Drum groups omit the degree: (hits, segments, offset).
-const kickPattern = pattern("(4,16,0)")
-const Kick_beat = connect("kick", kickPattern).gain(0.9)
-
-// Pattern multiplication is computation: *2 is twice as fast; *0.5 is half speed.
-const fastMelody = connect(sampleSound, melody * 2).scale("c minor").gain(0.2)
-
-// Optional scale-locked keyboard and MIDI input.
+const Sample2 = connect(sampleSound, melody * 0.5)
+  .scale("c minor")
+const Kick_beat = connect("kick", pattern("(3,16,0)")).gain(0.68)
+const Hat_beat = connect("hat", pattern("(7,16,2)")).gain(0.2)
 const SampleLive = live(sampleSound, "c minor")
-SampleLive.on()
 
-// Connected sounds play their pattern on each sequencer step.
-main(Sample, Kick_beat, fastMelody)
+main(
+  Sample.play()
+  Kick_beat.play()
+  Hat_beat.play()
+  SampleLive.on()
 
-screen.scope(Sample)
-screen.spectrum(Sample)
-screen.pianoRoll(Kick_beat)
-screen.shapes("puck", Kick_beat)
-screen.shapes("spheres", Sample)
-screen.oscillator(Sample)
+  if (Sample.isPlaying() && Kick_beat.isPlaying()) {
+    Sample2.pause(5)
+  }
+  Sample2.play()
+
+  if (Sample.isPlaying()) {
+    screen.shapes("spheres", Sample)
+    screen.scope(Sample)
+    screen.spectrum(Sample)
+  }
+)

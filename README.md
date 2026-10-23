@@ -1,6 +1,6 @@
 # scone
 
-scone is a browser based live coding sound lab. Type JavaScript in the editor, press **Play**, and make slower synth patterns from drawn waveforms, equations, and Euclidean rhythms. The canvas fills the window behind the code on a minimal `#FAFAFA` background.
+scone is a browser based live coding sound lab. Type JavaScript in the full-width editor, press **Play**, and make airy synth music from waveforms, equations, and Euclidean patterns. The visuals fill the window behind the code on a minimal `#FAFAFA` background.
 
 ## Run locally
 
@@ -9,88 +9,93 @@ npm install
 npm run dev
 ```
 
-Open the local URL Vite prints and press **Play** once to enable browser audio. **Ctrl+Enter** toggles playback. Code edits are applied at the next bar; an error keeps the last working program running.
+Open the local Vite URL, then press **Play** or **Ctrl+Enter** to start or pause. **Ctrl+Z**, **Ctrl+C**, and **Ctrl+V** undo, copy, and paste in the editor. Code edits apply at the next bar; a code error leaves the last working program running.
 
 ## Waveform, filter, and envelope lab
 
-The editor loads this working starter by default. You can restore it any time with **Load sample**. The same sample is in [`examples/scone-starter.js`](examples/scone-starter.js).
+The editor loads this working starter by default. **Load sample** restores it. The source is [`examples/scone-starter.js`](examples/scone-starter.js).
 
 ```js
-// Start the song with Play or Ctrl+Enter.
-tempo(84)
+tempo(82)
+const sampleSound = waveform("softWave", "0.82*sin(2*pi*f*t) + 0.12*sin(4*pi*f*t)")
+const filterForm = filterform("airFilter", "1/(1 + s*(1/(2*pi*1400)))")
+const envelopeForm = envelope("longFade", "(1-t)^1.6")
 
-const sampleSound = waveform("softWave", "sin(2*pi*f*t) + 0.12*sin(3*pi*f*t)")
-const filterForm = filterform("lowPass200", "1/(1 + s*(1/(2*pi*200)))")
-const envelopeForm = envelope("slowEnvelope", "(1-t)^2")
-
-// Melody groups use degree(hits, segments, offset).
-const melody = pattern("1(3,8,0) 5(2,8,1) 3(2,8,3)")
+const melody = pattern("1(2,8,0) 3(1,8,3) 5(2,8,5) 7(1,8,2)")
 const Sample = connect(sampleSound, melody)
   .scale("c minor")
   .filter(filterForm)
   .envelope(envelopeForm)
-  .gain(0.55)
-  .delay(0.18)
-
-// Drum groups omit the degree: (hits, segments, offset).
-const Kick_beat = connect("kick", pattern("(4,16,0)")).gain(0.9)
-const fastMelody = connect(sampleSound, melody * 2).scale("c minor").gain(0.2)
-
+  .gain(0.38)
+  .delay(0.34)
+const Sample2 = connect(sampleSound, melody * 0.5).scale("c minor")
+const Kick_beat = connect("kick", pattern("(3,16,0)")).gain(0.68)
+const Hat_beat = connect("hat", pattern("(7,16,2)")).gain(0.2)
 const SampleLive = live(sampleSound, "c minor")
-SampleLive.on()
 
-main(Sample, Kick_beat, fastMelody)
-screen.scope(Sample)
-screen.spectrum(Sample)
-screen.pianoRoll(Kick_beat)
-screen.shapes("puck", Kick_beat)
-screen.shapes("spheres", Sample)
-screen.oscillator(Sample)
+main(
+  Sample.play()
+  Kick_beat.play()
+  Hat_beat.play()
+  SampleLive.on()
+
+  if (Sample.isPlaying() && Kick_beat.isPlaying()) {
+    Sample2.pause(5)
+  }
+  Sample2.play()
+
+  if (Sample.isPlaying()) {
+    screen.shapes("spheres", Sample)
+    screen.scope(Sample)
+    screen.spectrum(Sample)
+  }
+)
 ```
 
-`1(3,8,0)` means play scale degree 1 for three hits across eight segments, with offset zero. For an unpitched sound such as a kick, write `(4,16,0)` for four hits across sixteen segments. Write each group inside a quoted string because the editor runs JavaScript. The compact `X...` rhythm form is not supported.
+`main(...)` contains ordinary JavaScript statements that run once per sequencer step; no arrow callback is needed. Use lowercase JavaScript `if`. Each pitched group is `degree(hits, segments, offset)`, such as `1(2,8,0)`. An unpitched drum group omits the degree, for example `(3,16,0)`. Keep the groups inside a quoted string because `pattern()` parses this text. Compact `X...` symbols are not part of the syntax.
 
-The Sound Lab has **Wave**, **Filter**, and **Envelope** axes, with **Draw** and **Equation** modes. Press and hold the primary mouse button on the graph to draw; moving the pointer while released does not change the data. The pad interpolates between pointer samples and renders the curve with quadratic smoothing. Clicking a `waveform`, `filterform`, or `envelope` declaration—or its variable name—opens the lab for that definition. Clicking the graph switches to Draw mode, so you can start drawing immediately. Click **Add to code** to insert the current drawing or equation as a named definition.
+In the Sound Lab, select **Wave**, **Filter**, or **Envelope** and draw by pressing and holding the primary mouse button on the graph. Pointer movement while released does not alter the curve. The pad fills gaps between pointer samples and uses quadratic curve smoothing. Clicking a definition or its variable opens that sound in the lab. Clicking the graph switches to Draw mode.
 
-- **Waveform:** `waveform(name, equationOrSamples)` defines one repeating wavetable. `t` runs from 0 to 1 and `f` follows the played pitch. Calculator functions include `sin`, `sqrt`, `abs`, and `sgn`; `^` means exponentiation.
-- **Filter:** `filterform(name, equationOrSamples)` defines a frequency response. The graph spans 20 Hz to 20 kHz on a logarithmic axis and displays decibels. For example, `1/(1 + s*(1/(2*pi*200)))` describes a low pass with a 200 Hz cutoff.
-- **Envelope:** `envelope(name, equationOrSamples)` defines amplitude over normalized time `t` from 0 to 1.
-- **Upload:** select **Upload sound** in the lab to add an audio snippet to the browser sound bank. Connect the uploaded sound to a pattern to play it.
+When you draw over a waveform equation, scone fits the resulting cycle to a Fourier series equation and writes that equation back into the selected `waveform(...)` definition. The regression increases the number of harmonics until the Pearson correlation coefficient **r is at least 0.95**; the measured value is shown in the lab. Filter and envelope drawings are written back as sample arrays. Equation edits are written back when you press Enter or leave the field.
+
+- **Waveform:** `waveform(name, equationOrSamples)` defines one repeating wavetable. `t` spans 0 to 1 and `f` tracks the note pitch. Calculator functions include `sin`, `sqrt`, `abs`, and `sgn`; `^` means exponentiation.
+- **Filter:** `filterform(name, equationOrSamples)` defines response over frequency. The graph uses a log scale from 20 Hz to 20 kHz and displays decibels. `1/(1 + s*(1/(2*pi*200)))` describes a low pass at 200 Hz.
+- **Envelope:** `envelope(name, equationOrSamples)` defines amplitude over normalized time `t`.
+- **Upload:** use **Upload sound** to save audio snippets in the browser sound bank, then use the sample name with `connect(sampleName, pattern(...))`.
 
 ## Language reference
 
 | Function | Description |
 | --- | --- |
-| `main(sound1, sound2, ...)` | Runs each connected sound on every internal sequencer step. Pass connected sounds directly; no callback is used. |
-| `pattern(text)` | Parses pitched groups `degree(hits, segments, offset)` or unpitched groups `(hits, segments, offset)`. |
-| `scale(name)` | Sets the current musical key and returns its scale pitches. Available scales: minor, major, phrygian, harmonic minor, dorian, pentatonic, chromatic. |
-| `connect(sound, pattern)` | Connects a built-in, uploaded, or waveform sound to a pattern. Returns the chain methods below. |
+| `main(statements...)` | Runs the statements inside its parentheses on each internal sequencer step. It accepts direct `.play()` calls and ordinary `if` blocks. |
+| `pattern(text)` | Parses pitched groups `degree(hits, segments, offset)` and unpitched groups `(hits, segments, offset)`. |
+| `scale(name)` | Sets the current musical key and returns its pitches. Scales: minor, major, phrygian, harmonic minor, dorian, pentatonic, chromatic. |
+| `connect(sound, pattern)` | Connects a built-in, uploaded, or waveform sound to a pattern. Returns the methods below. |
 | `waveform(name, equationOrSamples)` | Defines a wavetable from an equation or drawn samples. |
 | `filterform(name, equationOrSamples)` | Defines a filter response from an equation or drawn samples. |
 | `envelope(name, equationOrSamples)` | Defines an amplitude envelope from an equation or drawn samples. |
-| `live(sound, scale).on()` | Enables the computer keyboard and MIDI as a scale-locked piano for a sound. |
+| `live(sound, scale).on()` | Enables the keyboard and MIDI as a scale-locked piano for this sound. |
 | `tempo(bpm)` | Sets tempo from 40 to 240 BPM. |
 | `irand(max)` | Returns an integer from 0 through `max - 1`. |
-| `screen.scope(sound)` | Shows the selected sound's waveform scope. |
-| `screen.spectrum(sound)` | Shows the selected sound's frequency spectrum. |
-| `screen.pianoRoll(sound)` | Shows the selected sound's coded rhythm. |
-| `screen.shapes(kind, sound)` | Bounces the red puck, wooden monkey, or blue sphere on this sound's hits. Kinds: `"puck"`, `"monkey"`, `"spheres"`. |
-| `screen.oscillator(sound)` | Adds a grayscale oscillator visual driven by this sound. |
+| `screen.scope(sound)` | Shows the selected sound's waveform. |
+| `screen.spectrum(sound)` | Shows its frequency spectrum. |
+| `screen.pianoRoll(sound)` | Shows its coded rhythm. |
+| `screen.shapes(kind, sound)` | Bounces the red hockey puck, wooden monkey, or blue sphere on sound hits. Kinds: `"puck"`, `"monkey"`, `"spheres"`. |
 
 ### Methods returned by `connect`
 
 | Method | Description |
 | --- | --- |
-| `.play()` | Plays the connected sound according to its pattern. It is only available on the result of `connect()`. |
-| `.pause(seconds)` | Temporarily pauses for the given number of seconds. With no duration, pauses until resumed. |
-| `.silence()` | Pauses indefinitely until `.resume()` is called. |
-| `.resume()` | Resumes a sound paused with `.pause()` or `.silence()`. |
-| `.isPlaying()` | Returns true on a sequencer step when this sound actually triggers. |
-| `.scale(name)` | Sets the musical key used to turn this pattern's scale degrees into pitches. |
-| `.gain(value)` | Sets the sound level from 0 to 1. |
+| `.play()` | Runs this connected sound's pattern on the current step. |
+| `.pause(seconds)` | Pauses for the given number of seconds; without a duration, pauses until resumed. |
+| `.silence()` | Pauses until `.resume()` is called. |
+| `.resume()` | Resumes a paused sound. |
+| `.isPlaying()` | Returns true on a step when this pattern triggers. |
+| `.scale(name)` | Sets the key used to turn pattern degrees into pitches. |
+| `.gain(value)` | Sets sound level from 0 to 1. |
 | `.filter(form)` | Applies a `filterform(...)` response. |
-| `.envelope(form)` | Applies an `envelope(...)` amplitude shape. |
-| `.distort(equation)` | Applies a waveshaper equation evaluated over `x` from -1 to 1; for example, `"1.5*x - 0.5*x^3"`. |
-| `.delay(seconds)` | Adds a feedback delay with the requested delay time. |
+| `.envelope(form)` | Applies an `envelope(...)` shape. |
+| `.distort(equation)` | Applies a waveshaper equation over `x` from -1 to 1. |
+| `.delay(seconds)` | Adds a feedback delay. |
 
-Pattern multiplication expresses speed: `melody * 2` plays twice as fast, and `melody * 0.5` plays at half speed. Connect the result as usual: `connect(sampleSound, melody * 0.5)`.
+Pattern multiplication is the speed control: `melody * 2` plays twice as fast and `melody * 0.5` plays at half speed.
