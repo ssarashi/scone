@@ -132,7 +132,7 @@ class VisualRenderer {
   }
   private frame(time: number): void {
     requestAnimationFrame((t) => this.frame(t)); const gl = this.gl; if (!gl) return
-    if(!this.program){this.resize();gl.clearColor(.93,.935,.93,1);gl.clear(gl.COLOR_BUFFER_BIT);return}
+    if(!this.program){this.resize();gl.clearColor(.9804,.9804,.9804,1);gl.clear(gl.COLOR_BUFFER_BIT);return}
     this.resize(); gl.useProgram(this.program); gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer)
     const loc=gl.getAttribLocation(this.program,'aPosition');gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0)
     gl.uniform1f(gl.getUniformLocation(this.program,'uTime'),this.reduced?time*.0002:time*.001)
@@ -159,19 +159,3 @@ export const shape = (sides?: LiveNumber, radius?: LiveNumber) => new VisualChai
 export const gradient = (speed?: LiveNumber) => new VisualChain('gradient',[speed])
 export const solid = (r?: LiveNumber,g?: LiveNumber,b?: LiveNumber) => new VisualChain('solid',[r,g,b])
 export const grid = (scale?: LiveNumber) => new VisualChain('grid',[scale])
-export function listen(audio: AudioEngine, name: string): AudioTap { return new AudioTap(audio,name) }
-
-/** Read live level, spectrum, waveform, hit pulse and frequency bands for visual chains. */
-export class AudioTap {
-  private filter: { type: BiquadFilterType; hz: number; q: number } | null = null
-  constructor(private audio: AudioEngine, readonly source: string) {}
-  lpf(hz: number): this { this.filter={type:'lowpass',hz,q:.707}; return this }
-  hpf(hz: number): this { this.filter={type:'highpass',hz,q:.707}; return this }
-  bpf(hz: number,q=1): this { this.filter={type:'bandpass',hz,q}; return this }
-  private values() { return this.filter?this.audio.filteredMeter(this.source,this.filter.type,this.filter.hz,this.filter.q):this.audio.meter(this.source) }
-  get level(): number { return this.values().level }
-  get fft(): Uint8Array<ArrayBuffer> { return this.values().fft }
-  get wave(): Uint8Array<ArrayBuffer> { return this.values().wave }
-  get hit(): number { return this.values().hit }
-  band(low: number,high: number): number { const m=this.values(),nyquist=(this.audio.context?.sampleRate??44100)/2,lo=Math.max(0,Math.floor(low/nyquist*m.fft.length)),hi=Math.min(m.fft.length-1,Math.ceil(high/nyquist*m.fft.length));if(hi<lo||!m.fft.length)return 0;let sum=0;for(let i=lo;i<=hi;i++)sum+=m.fft[i];return sum/(hi-lo+1)/255 }
-}

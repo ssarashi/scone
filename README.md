@@ -1,6 +1,6 @@
 # scone
 
-scone is a browser based sound lab for slow synth music. Type JavaScript in the editor, press Play, and the code schedules sound on a steady sixteenth note clock. A white and gray aurora visual fills the background. The optional sound lab opens when the code contains `waveform()`, `filterform()`, or `envelope()`.
+scone is a browser based live coding sound lab. Type JavaScript in the editor, press **Play**, and build slower synth patterns with wavetable equations, drawn waveforms, and Euclidean rhythms. The canvas visual sits behind the code on a minimal `#FAFAFA` background.
 
 ## Run locally
 
@@ -9,90 +9,82 @@ npm install
 npm run dev
 ```
 
-Open the local URL Vite prints and press **Play** once to enable browser audio. **Ctrl+Enter** toggles play and pause. Edits made during playback are compiled at the next bar; code errors keep the last working program running.
+Open the local URL Vite prints. Press **Play** once to enable browser audio. **Ctrl+Enter** toggles play and pause. Code edits are applied at the next bar; a compile error keeps the last working code running.
 
-## Corrected full sample
+## Waveform, filter, and envelope lab
 
-The complete starter example is in [`examples/scone-starter.js`](examples/scone-starter.js). It is also the editor's **Load sample** button and can be downloaded from the Guide panel. It demonstrates a waveform, 200 Hz filter, envelope, scale degrees as array tuples, a doubled-speed pattern, the live keyboard/MIDI piano, hit-based pauses, the three sound-reactive toys, per-sound displays, and grayscale visuals.
-
-The core syntax is:
+The complete example is in [`examples/scone-starter.js`](examples/scone-starter.js), available in the editor through **Load sample** and in the Guide panel. It shows named wave, filter, and envelope definitions, a scale-aware Euclidean pattern, a connected synth and kick, a doubled-speed pattern, MIDI/keyboard piano, and per-sound visual tools.
 
 ```js
 const sampleSound = waveform("softWave", "sin(2*pi*f*t)")
 const filterForm = filterform("lowPass200", "1/(1 + s*(1/(2*pi*200)))")
-const samplePattern = pattern([[1,3,8,0], [5,2,8,1], [3,2,8,3]])
+const envelopeForm = envelope("softEnvelope", "(1-t)^2")
+
+const samplePattern = pattern("1(3,8,0) 5(2,8,1) 3(2,8,3)")
   .scale("c minor")
   .filter(filterForm)
 const Sample = connect(sampleSound, samplePattern)
-const Sample2 = connect(sampleSound, samplePattern * 2)
+  .filter(filterForm)
+  .envelope(envelopeForm)
+  .gain(0.55)
+  .delay(0.18)
+const Kick_beat = connect("kick", pattern("X..."))
 
-main(() => {
-  Sample.play()
-  Sample2.play()
-})
+main(Sample, Kick_beat)
+screen.scope(Sample)
+screen.shapes("spheres", Sample)
+screen.oscillator(Sample)
 ```
 
-Patterns may use tuple arrays to avoid quoting the rhythm. Each tuple is `[scale degree, hits, segments, offset]`. `main(() => {})` is called on the internal step clock without beat or bar arguments. Pattern multipliers `* 2` and `* 0.5` double and halve speed.
+A Euclidean group is written as `degree(hits, segments, offset)`. So `1(3,8,0)` schedules degree 1 three times across eight steps, with offset 0. Multiple groups can be separated by spaces. Put the text in quotes because this project is JavaScript. Compact rhythm symbols also work: `pattern("X... ..x.")`.
 
-## Waveform, filter, and envelope lab
+In the Sound Lab, choose **Wave**, **Filter**, or **Envelope**, then **Draw** or **Equation**. Drawing changes the sound data only while the pointer is held down. The curve uses interpolation and quadratic rendering to avoid gaps and jagged joins. Click a `waveform`, `filterform`, or `envelope` definition—or its variable name—to open the matching lab pane. Close the pane with its button or by clicking outside it. The **Add to code** action inserts a named definition at the editor cursor.
 
-Write one of these definitions in the editor to open the lab:
+- **Waveform:** `waveform(name, equation)` creates one repeating wavetable. `t` covers one cycle and `f` is the note frequency; standard calculator expressions are accepted, including `sin`, `sqrt`, and `^` for powers. For example: `waveform("bright", "sgn(sin(2*pi*f*t))")`.
+- **Filter:** `filterform(name, equation)` describes response versus frequency. The graph uses log frequency from 20 Hz to 20 kHz and decibels vertically. Linear gain and dB expressions work. `1/(1 + s*(1/(2*pi*200)))` is interpreted as a first-order low pass at 200 Hz.
+- **Envelope:** `envelope(name, equation)` defines amplitude over normalized time `t`, from 0 to 1. For example, `(1-t)^2` fades out.
+- **Upload:** use **Upload sound** in the lab to add an audio snippet to the local sound bank. Uploaded clips are kept in this browser's IndexedDB.
 
-```js
-const leadWave = waveform("sin(2*pi*f*t)")
-const lowPass = filterform("1/(1 + s*(1/(2*pi*200)))")
-const ampShape = envelope("(1-t)^2")
-```
+## Language reference
 
-The panel can be closed; edit one of those declarations again to reopen it. In **Draw** mode, click and drag on the graph to draw; hovering without a pressed pointer does not alter it. In **Equation** mode, edits update the graph when you press Enter or leave the field. The **Add to code** button inserts a named definition at the cursor. The panel also has an upload control and the local sound bank.
+Only the functions below are provided to user code. Ordinary JavaScript syntax is available around them.
 
-- **Wave:** one repeating cycle, with `t` from 0 to 1 and `f` as the pitch frequency. Available calculator functions include `sin`, `cos`, `tan`, `tri`, `saw`, `sgn`, `abs`, `sqrt`, `pow`, `exp`, `log`, and `log10`. Use `^` for exponentiation.
-- **Filter:** frequency is `f` in Hz; the graph uses a logarithmic 20 Hz–20 kHz axis and a dB scale. Linear gain expressions and dB expressions are accepted. A first order s-domain low pass such as `1/(1 + s*(1/(2*pi*200)))` maps to a 200 Hz cutoff.
-- **Envelope:** amplitude over time. Connect one with `voice.envelope(ampShape)`.
-
-`waveform`, `filterform`, and `envelope` accept an expression or an array of drawn samples. They can also take a name first, as in `waveform("lead", equation)`. Wavetables are saved in the local sound bank. Uploaded audio snippets are stored in IndexedDB in this browser.
-
-## Music and playback helpers
-
-| Function | Purpose |
+| Function | Description |
 | --- | --- |
-| `main(callback)` | Register the function called on every internal sequencer step. |
-| `pattern(text)` | Parse Euclidean degree groups or compact rhythm symbols. |
-| `euclid(degree, beats, segments, offset)` | Create one Euclidean degree pattern. |
-| `degrees(text, options?)` | Create scale-degree notes and rests. |
-| `notes(text)` | Create note-name events such as `c4 eb3 g3`. |
-| `pattern(...).scale(name)` | Set the musical scale for the pattern, such as `"c minor"` or `"f# phrygian"`. Available scales are minor, major, phrygian, harmonic minor, dorian, pentatonic, and chromatic. |
-| `connect(sound, pattern)` | Connect a waveform or named sound to a pattern. Returns `.play()`, `.pause(seconds?)`, `.silence()`, `.resume()`, `.isPlaying()`, `.gain(value)`, `.filter(form)`, `.envelope(form)`, and `.distort(form)`. |
-| `play(name, note?, options?)` | Trigger one sound or uploaded sample. Options include `vol`, `at`, `pitch`, `speed`, and `reverb`. |
-| `track(name, pattern)` | Run a pattern on a built in drum or synth voice. |
-| `live(sound, scale).on()` | Enable the computer keyboard and MIDI as a scale-locked piano for a sound. |
-| `tempo(bpm)` | Set tempo from 40 to 240 BPM. |
-| `gain(name, amount)` | Set a sound bus level. |
-| `delay(name, seconds?, feedback?, wet?)` | Add a feedback delay to a sound. |
-| `distort(name, equation)` | Build a waveshaper from an equation in `x`; `^` means exponentiation. |
-| `irand(max)` | Choose an integer from zero through `max - 1`. |
-| `listen(name)` | Read `.level`, `.fft`, `.wave`, `.hit`, `.band(lo, hi)`, `.lpf(hz)`, `.hpf(hz)`, and `.bpf(hz, q)` for visuals. |
-| `screen.scope(sound)` | Show a waveform scope for one sound. |
-| `screen.spectrum(sound)` | Show a spectrum for one sound. |
-| `screen.pianoRoll(sound)` | Show the coded rhythm for one sound. |
-| `screen.shapes(kind, sound)` | Make the puck, wooden monkey, or blue sphere bounce on sound hits. |
-| `screen.oscillator(...)` | Add an oscillator visual behind the code. |
+| `main(sound1, sound2, ...)` | Registers connected sounds to run on each internal sixteenth-note step. Supply connected sounds directly; no callback is required. |
+| `pattern(text)` | Parses Euclidean degree groups such as `"1(3,8,0) 5(2,8,1)"` or compact rhythm characters such as `X`, `x`, `o`, `.`, and roll digits `2`–`9`. |
+| `scale(name)` | Sets the current musical key and returns the pitches in that scale. |
+| `pattern(...).scale(name)` | Sets the scale used to convert degrees to pitches. Available scales: minor, major, phrygian, harmonic minor, dorian, pentatonic, chromatic. Examples: `"c minor"`, `"f# phrygian"`. |
+| `pattern(...).filter(form)` | Associates a `filterform` with the pattern; `connect` applies it to the sound. |
+| `connect(sound, pattern)` | Connects a waveform or named built-in/uploaded sound to a pattern. Returns the methods listed below. |
+| `play(name, note?, options?)` | Triggers one built-in or uploaded sound. Options include `vol`, `at`, `pitch`, `speed`, and `reverb`. |
+| `live(sound, scale).on()` | Enables the computer keyboard and MIDI input as a scale-locked piano for the selected sound. |
+| `tempo(bpm)` | Sets tempo from 40 to 240 BPM. |
+| `irand(max)` | Returns an integer from 0 through `max - 1`. |
+| `waveform(name, equationOrSamples)` | Defines a wavetable using an equation string or array of drawn samples. |
+| `filterform(name, equationOrSamples)` | Defines a frequency response using an equation string or drawn curve samples. |
+| `envelope(name, equationOrSamples)` | Defines an amplitude envelope using an equation string or drawn samples. |
+| `screen.scope(sound)` | Shows the selected sound's waveform scope. |
+| `screen.spectrum(sound)` | Shows the selected sound's spectrum. |
+| `screen.pianoRoll(sound)` | Shows the selected sound's coded rhythm. |
+| `screen.shapes(kind, sound)` | Makes one of the three objects bounce on this sound's hits: `"puck"`, `"monkey"`, or `"spheres"`. |
+| `screen.oscillator(sound)` | Adds the grayscale oscillator visual, driven by that sound's spectrum. |
 
-## Visuals
+### Methods returned by `connect`
 
-Visuals render behind the editor. The background is grayscale and aurora-like; the three sound-reactive objects are a red hockey puck, wooden monkey, and blue sphere. For example:
+| Method | Description |
+| --- | --- |
+| `.play()` | Schedules this connected sound's pattern on the current step. |
+| `.pause(seconds)` | Temporarily pauses the sound for the given number of seconds; with no duration, pauses until resumed. |
+| `.silence()` | Pauses the sound indefinitely until `.resume()` is called. |
+| `.resume()` | Resumes a sound paused with `.pause()` or `.silence()`. |
+| `.isPlaying()` | Returns true on a step where this sound's pattern actually triggers. |
+| `.gain(value)` | Sets this sound's level from 0 to 1. |
+| `.filter(form)` | Applies a `filterform` to this sound. |
+| `.envelope(form)` | Applies an `envelope` amplitude shape. |
+| `.distort(equationOrForm)` | Applies a waveshaper. An equation is evaluated over `x` from -1 to 1; for example, `"1.5*x - 0.5*x^3"` (use `^` for powers). |
+| `.delay(seconds)` | Adds a feedback delay with the requested delay time. |
 
-```js
-const all = listen("all")
-noise(() => 1 + all.fft[1] / 90, .015)
-  .modulate(noise(() => 2 + all.fft[0] / 24), .16)
-  .out()
-screen.shapes("spheres", lead)
-screen.scope(lead)
-```
+Pattern speed can be changed with multiplication: `samplePattern * 2` plays it twice as fast, while `samplePattern * 0.5` plays it at half speed.
 
-Sources include `osc`, `noise`, `voronoi`, `shape`, `gradient`, `solid`, and `grid`. Visual chains support `rotate`, `scale`, `kaleid`, `pixelate`, `repeat`, `color`, `colorama`, `invert`, `thresh`, `modulate`, `diff`, `blend`, `mult`, `feedback`, and `out`.
-
-## GitHub Pages
-
-A Pages workflow is included in `.github/workflows/pages.yml`; Vite is configured for the project URL `https://ssarashi.github.io/scone/`. Push the project to a repository named `scone` under `ssarashi`, then select **Settings → Pages → GitHub Actions**. The current workspace has no Git remote or authenticated GitHub CLI, so it cannot publish to the account from this environment by itself.
+The visuals use `screen.*` calls and attach directly to the selected sound; there is no separate audio-listener function. The example visual objects are the red hockey puck, wooden monkey, and blue sphere.
