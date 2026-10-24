@@ -14,14 +14,19 @@ describe('live-code syntax transforms', () => {
 )`
     const output = transformMainBlocks(source)
     expect(output).toContain('main(() => {')
+    expect(output).toContain('__sconePlayAt(1,Sample)')
+    expect(output).toContain('__sconePlayAt(2,Kick_beat)')
     const calls: string[] = []
+    const playedLines: number[] = []
     let step: (() => void) | undefined
     const Sample = { play: () => calls.push('sample'), isPlaying: () => true }
     const Kick_beat = { play: () => calls.push('kick'), isPlaying: () => true }
     const Sample2 = { pause: (seconds: number) => calls.push(`pause:${seconds}`) }
-    new Function('main', 'Sample', 'Kick_beat', 'Sample2', output)((fn: () => void) => { step = fn }, Sample, Kick_beat, Sample2)
+    const playAt = (line: number, sound: { play: () => void }) => { playedLines.push(line); sound.play() }
+    new Function('main', 'Sample', 'Kick_beat', 'Sample2', '__sconePlayAt', output)((fn: () => void) => { step = fn }, Sample, Kick_beat, Sample2, playAt)
     step?.()
     expect(calls).toEqual(['sample', 'kick', 'pause:5'])
+    expect(playedLines).toEqual([1, 2])
   })
 
   it('keeps connected-sound shorthand and rewrites arithmetic speed', () => {
