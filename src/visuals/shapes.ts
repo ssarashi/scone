@@ -27,7 +27,7 @@ export class ShapeField {
     this.ctx = canvas.getContext('2d')!; this.resize(); addEventListener('resize', () => this.resize()); requestAnimationFrame((t) => this.frame(t))
   }
   /** Register a visual object family and its audio or pattern trigger. */
-  add(kind: string | string[], options: ShapeOptions): void { const aliases:Record<string,string>={puck:'hockey-puck',monkey:'wooden-monkey',spheres:'blue-sphere',duck:'rubber-duck',rubberduck:'rubber-duck'},allowed=['hockey-puck','wooden-monkey','blue-sphere','rubber-duck','miffy'],items=(Array.isArray(kind)?kind:[kind]).map(name=>{const resolved=aliases[name]||name;return allowed.includes(resolved)?resolved:'blue-sphere'});this.specs.push({ kind:items, options, baseSeed:options.seed??++this.seed*13.37+Math.random()*1000, births:0 }) }
+  add(kind: string | string[], options: ShapeOptions): void { const aliases:Record<string,string>={monkey:'wooden-monkey',spheres:'blue-sphere',duck:'rubber-duck',rubberduck:'rubber-duck'},allowed=['wooden-monkey','blue-sphere','rubber-duck','miffy'],items=(Array.isArray(kind)?kind:[kind]).map(name=>aliases[name]||name).filter(name=>allowed.includes(name));if(!items.length)return;this.specs.push({ kind:items, options, baseSeed:options.seed??++this.seed*13.37+Math.random()*1000, births:0 }) }
   /** Clear user-defined shape families and active particles on a live recompilation. */
   clear(): void { this.specs = []; this.shapes = [] }
   beginTransaction():void{this.previousSpecs=[...this.specs];this.previousShapes=[...this.shapes];this.specs=[];this.shapes=[]}
@@ -72,7 +72,8 @@ export class ShapeField {
   private spawn(spec: ShapeSpec, power: number): void {
     const opts = spec.options, seed = spec.baseSeed+spec.births++*17.31, angle = this.random(seed) * Math.PI * 2, velocity = (opts.speed ?? 2) * (.6 + power)
     const list = Array.isArray(spec.kind) ? spec.kind : [spec.kind], kind = list[Math.floor(this.random(seed + 1) * list.length)]
-    this.shapes.push({ kind, x: innerWidth * (.2 + this.random(seed + 2) * .6), y: innerHeight * (.2 + this.random(seed + 3) * .6), vx: Math.cos(angle) * velocity, vy: Math.sin(angle) * velocity, size: 150, angle: this.random(seed + 5) * 6, spin: this.random(seed + 6) * 2 - 1, age: 0, life: opts.life ?? 520, seed, spec })
+    const size=kind==='blue-sphere'?50:kind==='wooden-monkey'?120:150
+    this.shapes.push({ kind, x: innerWidth * (.2 + this.random(seed + 2) * .6), y: innerHeight * (.2 + this.random(seed + 3) * .6), vx: Math.cos(angle) * velocity, vy: Math.sin(angle) * velocity, size, angle: this.random(seed + 5) * 6, spin: this.random(seed + 6) * 2 - 1, age: 0, life: opts.life ?? 520, seed, spec })
     if (this.shapes.length > 1200) this.shapes.splice(0, this.shapes.length - 1200)
   }
   private frame(t: number): void {
@@ -87,7 +88,7 @@ export class ShapeField {
       const motion=this.reduced ? .2 : 1
       if (!this.paused) { p.x += p.vx * dt*motion; p.y += p.vy * dt*motion }
       p.age += this.paused ? 0 : dt*motion; p.angle += this.paused?0:(read(o.spin, p.spin) + p.spin * .12) * .006 * dt*motion
-      const image=this.imageFor(p.kind),size=Math.max(150,read(o.size,p.size)*(image?1:.65+Math.sin(t*.001+p.seed)*.07))
+      const image=this.imageFor(p.kind),minimum=p.kind==='blue-sphere'?50:p.kind==='wooden-monkey'?120:150,size=Math.max(minimum,read(o.size,p.size)*(image?1:.65+Math.sin(t*.001+p.seed)*.07))
       const edge = o.edge ?? 'bounce'; if (edge === 'bounce') { const halfW=size/2,halfH=image?.naturalWidth?halfW*image.naturalHeight/image.naturalWidth:halfW,minX=Math.min(halfW,innerWidth/2),maxX=Math.max(innerWidth-halfW,innerWidth/2),minY=Math.min(halfH,innerHeight/2),maxY=Math.max(innerHeight-halfH,innerHeight/2);if(p.x<minX){p.x=minX;p.vx=Math.abs(p.vx)}else if(p.x>maxX){p.x=maxX;p.vx=-Math.abs(p.vx)}if(p.y<minY){p.y=minY;p.vy=Math.abs(p.vy)}else if(p.y>maxY){p.y=maxY;p.vy=-Math.abs(p.vy)} } else { if(p.x< -40)p.x=innerWidth+40;if(p.x>innerWidth+40)p.x=-40;if(p.y< -40)p.y=innerHeight+40;if(p.y>innerHeight+40)p.y=-40 }
       const fade = Math.min(1, age * 5, (1 - age) * 4); if (age >= 1) { this.shapes.splice(i,1); continue }
       const opacity=Math.max(0,fade*(this.reduced ? .55 : 1)*(this.paused ? .55 : 1)), color=this.reduced||this.paused?'#a8a6ad':read(o.color,'#b7ff4a'), glow=read(o.glow,7)
@@ -98,9 +99,6 @@ export class ShapeField {
   private draw(kind: string,x: number,y: number,size: number,angle: number,color: string,opacity:number,glow:number):void {
     const c=this.ctx;c.save();c.translate(x,y);c.rotate(angle);c.globalAlpha=opacity;c.strokeStyle=color;c.fillStyle=color;c.lineWidth=1.4;c.shadowColor=color;c.shadowBlur=glow
     const r=size/2
-    if(kind==='hockey-puck'){
-      const h=c.createLinearGradient(-r,-r,r,r);h.addColorStop(0,'#fa6a67');h.addColorStop(.48,'#d21e2b');h.addColorStop(1,'#8c101c');c.shadowColor='#c82731';c.shadowBlur=glow*.45;c.fillStyle=h;c.beginPath();c.ellipse(0,r*.13,r,r*.43,0,0,Math.PI*2);c.fill();c.fillStyle='#e73640';c.beginPath();c.ellipse(0,-r*.1,r,r*.4,0,Math.PI,Math.PI*2);c.fill();c.strokeStyle='#9f1520';c.lineWidth=Math.max(1,size*.035);c.beginPath();c.ellipse(0,-r*.1,r,r*.4,0,Math.PI,Math.PI*2);c.stroke();c.restore();return
-    }
     if(kind==='blue-sphere'){
       const g=c.createRadialGradient(-r*.35,-r*.4,r*.04,0,0,r);g.addColorStop(0,'#d5edff');g.addColorStop(.2,'#68b8f4');g.addColorStop(.68,'#2878c9');g.addColorStop(1,'#16457d');c.shadowColor='#8fcafa';c.shadowBlur=glow;c.fillStyle=g;c.beginPath();c.arc(0,0,r,0,Math.PI*2);c.fill();c.restore();return
     }

@@ -72,7 +72,7 @@ The waveform lab includes an on-screen piano. Its keys audition the current wave
 | `tempo(bpm)` | Sets tempo from 40 to 240 BPM. |
 | `irand(max)` | Returns an integer from zero through `max - 1`. |
 | `screen.scope(sound)` | Draws the sound’s waveform as a full-window background layer in `#4B3A59`. |
-| `screen.shapes(kind, sound)` | Bounces a visual object inside the viewport on the sound’s hits. A new object appears at a random position every fourth hit; existing objects get a small impulse on each hit. All objects render 150 CSS pixels wide. Kinds: `"puck"`, `"monkey"`, `"spheres"`, `"duck"`, and `"miffy"`. |
+| `screen.shapes(kind, sound)` | Bounces a visual object inside the viewport on the sound’s hits. A new object appears at a random position every fourth hit; existing objects get a small impulse on each hit. The sphere is about 50 CSS pixels wide, the monkey 120, and the duck and Miffy 150. Kinds: `"monkey"`, `"spheres"`, `"duck"`, and `"miffy"`. |
 
 The wooden monkey, rubber duck, and Miffy use transparent PNG cutouts at `public/wooden_monkey.png`, `public/rubberduck.png`, and `public/miffy.png`. Their image URLs use Vite’s `BASE_URL`, so they load under the `/scone/` project prefix on GitHub Pages. For example, `screen.shapes("duck", sample)` adds a rubber duck and `screen.shapes("miffy", sample)` adds Miffy.
 
