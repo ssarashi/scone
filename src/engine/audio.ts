@@ -144,7 +144,7 @@ export class AudioEngine {
     const bus = this.bus(name), t = this.context.currentTime; bus.gain.cancelScheduledValues(t); bus.gain.setTargetAtTime(yes ? 0 : 1, t, .012)
   }
   /** Set one named instrument bus gain with a short click-free ramp. */
-  setGain(name:string,level:number,ramp=.02):void{const bus=this.bus(name),ctx=this.context!,t=ctx.currentTime;bus.gain.cancelScheduledValues(t);bus.gain.setTargetAtTime(Math.max(0,Math.min(1,level)),t,Math.max(.002,ramp))}
+  setGain(name:string,level:number,ramp=.02):void{const bus=this.bus(name),ctx=this.context!,t=ctx.currentTime;bus.gain.cancelScheduledValues(t);bus.gain.setTargetAtTime(Math.max(0,Math.min(8,level)),t,Math.max(.002,ramp))}
   /** Apply a drawn dB response as a short FIR filter on one instrument bus. */
   setFilterForm(name:string,response:Float32Array):void{
     if(!this.context)return

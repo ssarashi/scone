@@ -27,8 +27,7 @@ main(
   sampleSlow.play()
 
   if (sample.isPlaying()) {
-    screen.shapes("spheres", sample)
+    screen.shapes("monkey", sample)
     screen.scope(sample)
-    screen.spectrum(sample)
   }
 )

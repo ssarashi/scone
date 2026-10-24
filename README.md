@@ -44,9 +44,8 @@ main(
   sampleSlow.play()
 
   if (sample.isPlaying()) {
-    screen.shapes("spheres", sample)
+    screen.shapes("monkey", sample)
     screen.scope(sample)
-    screen.spectrum(sample)
   }
 )
 ```
@@ -75,23 +74,26 @@ The waveform lab includes an on-screen piano. Its keys play the current waveform
 | `tempo(bpm)` | Sets tempo from 40 to 240 BPM. |
 | `irand(max)` | Returns an integer from zero through `max - 1`. |
 | `screen.scope(sound)` | Draws the sound’s waveform as a full-window background layer in `#4B3A59`. |
-| `screen.spectrum(sound)` | Draws a scrolling grayscale spectrogram across the background. |
 | `screen.shapes(kind, sound)` | Bounces the hockey puck, wooden monkey, or blue sphere on hits. Kinds: `"puck"`, `"monkey"`, `"spheres"`. |
+
+The wooden monkey uses the transparent photo cutout at `public/wooden_monkey.png`. The app builds its URL from Vite’s `BASE_URL`, so the image path keeps the `/scone/` project prefix when served from GitHub Pages.
 
 ### Methods returned by `connect`
 
 | Method | Purpose |
 | --- | --- |
 | `.play()` | Schedules the connected pattern for the current step. |
-| `.isPlaying()` | Returns true only if this connected sound has a non-muted hit queued on the current sequencer step. Call `.play()` before checking it in `main(...)`; it is true only for that connection’s hit on this step. |
+| `.isPlaying()` | Returns true while this connection has a note active, including its short release, and false between notes. Call `.play()` before checking it in `main(...)`. Visual declarations inside an `if` are active only while that condition is true. |
 | `.pause(seconds)` | Temporarily skips this sound for the given duration; with no duration it pauses until resumed. |
 | `.silence()` | Pauses until `.resume()` is called. |
 | `.resume()` | Resumes this connected sound. |
-| `.gain(value)` | Sets this sound’s track level from 0 to 1. It is applied after the voice and before track effects. |
+| `.gain(value)` | Sets this sound’s linear track multiplier from 0 to 8. `1` is normal level; values above `1` boost it. It is applied after the voice and before track effects. |
 | `.filter(form)` | Applies a `filterform(...)` response. |
 | `.envelope(form)` | Applies an `envelope(...)` amplitude contour. |
 | `.distort(equation)` | Applies a waveshaper equation over `x` from -1 to 1. |
 | `.delay(seconds)` | Adds or updates a feedback delay send after the track filters; seconds are clamped to 0.015–1.5. |
+
+`if (sample.isPlaying())` enables visuals while that connection has an active note. `if (!sample.isPlaying())` enables them during gaps; visual calls inside either branch are cleared when the branch stops running.
 
 Pattern multiplication controls speed: `melody * 2` plays twice as fast; `melody * 0.5` plays at half speed.
 
