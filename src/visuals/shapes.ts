@@ -72,8 +72,7 @@ export class ShapeField {
   private spawn(spec: ShapeSpec, power: number): void {
     const opts = spec.options, seed = spec.baseSeed+spec.births++*17.31, angle = this.random(seed) * Math.PI * 2, velocity = (opts.speed ?? 2) * (.6 + power)
     const list = Array.isArray(spec.kind) ? spec.kind : [spec.kind], kind = list[Math.floor(this.random(seed + 1) * list.length)]
-    const imageKind=kind==='wooden-monkey'||kind==='rubber-duck'||kind==='miffy'
-    this.shapes.push({ kind, x: innerWidth * (.2 + this.random(seed + 2) * .6), y: innerHeight * (.2 + this.random(seed + 3) * .6), vx: Math.cos(angle) * velocity, vy: Math.sin(angle) * velocity, size: imageKind?15:18+this.random(seed + 4) * 45, angle: this.random(seed + 5) * 6, spin: this.random(seed + 6) * 2 - 1, age: 0, life: opts.life ?? 520, seed, spec })
+    this.shapes.push({ kind, x: innerWidth * (.2 + this.random(seed + 2) * .6), y: innerHeight * (.2 + this.random(seed + 3) * .6), vx: Math.cos(angle) * velocity, vy: Math.sin(angle) * velocity, size: 150, angle: this.random(seed + 5) * 6, spin: this.random(seed + 6) * 2 - 1, age: 0, life: opts.life ?? 520, seed, spec })
     if (this.shapes.length > 1200) this.shapes.splice(0, this.shapes.length - 1200)
   }
   private frame(t: number): void {
@@ -88,7 +87,7 @@ export class ShapeField {
       const motion=this.reduced ? .2 : 1
       if (!this.paused) { p.x += p.vx * dt*motion; p.y += p.vy * dt*motion }
       p.age += this.paused ? 0 : dt*motion; p.angle += this.paused?0:(read(o.spin, p.spin) + p.spin * .12) * .006 * dt*motion
-      const image=this.imageFor(p.kind),size=image?Math.max(15,read(o.size,p.size)):Math.max(1,read(o.size,p.size)*(.65+Math.sin(t*.001+p.seed)*.07))
+      const image=this.imageFor(p.kind),size=Math.max(150,read(o.size,p.size)*(image?1:.65+Math.sin(t*.001+p.seed)*.07))
       const edge = o.edge ?? 'bounce'; if (edge === 'bounce') { const halfW=size/2,halfH=image?.naturalWidth?halfW*image.naturalHeight/image.naturalWidth:halfW,minX=Math.min(halfW,innerWidth/2),maxX=Math.max(innerWidth-halfW,innerWidth/2),minY=Math.min(halfH,innerHeight/2),maxY=Math.max(innerHeight-halfH,innerHeight/2);if(p.x<minX){p.x=minX;p.vx=Math.abs(p.vx)}else if(p.x>maxX){p.x=maxX;p.vx=-Math.abs(p.vx)}if(p.y<minY){p.y=minY;p.vy=Math.abs(p.vy)}else if(p.y>maxY){p.y=maxY;p.vy=-Math.abs(p.vy)} } else { if(p.x< -40)p.x=innerWidth+40;if(p.x>innerWidth+40)p.x=-40;if(p.y< -40)p.y=innerHeight+40;if(p.y>innerHeight+40)p.y=-40 }
       const fade = Math.min(1, age * 5, (1 - age) * 4); if (age >= 1) { this.shapes.splice(i,1); continue }
       const opacity=Math.max(0,fade*(this.reduced ? .55 : 1)*(this.paused ? .55 : 1)), color=this.reduced||this.paused?'#a8a6ad':read(o.color,'#b7ff4a'), glow=read(o.glow,7)
