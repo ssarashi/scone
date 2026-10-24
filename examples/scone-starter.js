@@ -28,6 +28,8 @@ main(
 
   if (sample.isPlaying()) {
     screen.shapes("monkey", sample)
+    screen.shapes("duck", sample)
+    screen.shapes("miffy", sample)
     screen.scope(sample)
   }
 )

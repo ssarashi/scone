@@ -9,20 +9,25 @@ const read = <T,>(v: T | (() => T) | undefined, fallback: T): T => { try { retur
 export class ShapeField {
   private ctx: CanvasRenderingContext2D
   private monkeyImage=new Image()
+  private duckImage=new Image()
+  private miffyImage=new Image()
   private specs: ShapeSpec[] = []
   private shapes: FloatingShape[] = []
+  private hitCounts=new Map<string,number>()
   private time = 0
   private seed = 1
   private reduced = false
   private paused = false
   private previousSpecs:ShapeSpec[]|null=null
   private previousShapes:FloatingShape[]|null=null
-  constructor(private canvas: HTMLCanvasElement,monkeyImageUrl:string) {
-    this.monkeyImage.decoding='async';this.monkeyImage.src=monkeyImageUrl
+  constructor(private canvas: HTMLCanvasElement,images:{monkey:string;duck:string;miffy:string}) {
+    this.monkeyImage.decoding='async';this.monkeyImage.src=images.monkey
+    this.duckImage.decoding='async';this.duckImage.src=images.duck
+    this.miffyImage.decoding='async';this.miffyImage.src=images.miffy
     this.ctx = canvas.getContext('2d')!; this.resize(); addEventListener('resize', () => this.resize()); requestAnimationFrame((t) => this.frame(t))
   }
   /** Register a visual object family and its audio or pattern trigger. */
-  add(kind: string | string[], options: ShapeOptions): void { const allowed=['hockey-puck','wooden-monkey','blue-sphere'],items=(Array.isArray(kind)?kind:[kind]).map(name=>allowed.includes(name)?name:'blue-sphere');this.specs.push({ kind:items, options, baseSeed:options.seed??++this.seed*13.37+Math.random()*1000, births:0 }) }
+  add(kind: string | string[], options: ShapeOptions): void { const aliases:Record<string,string>={puck:'hockey-puck',monkey:'wooden-monkey',spheres:'blue-sphere',duck:'rubber-duck',rubberduck:'rubber-duck'},allowed=['hockey-puck','wooden-monkey','blue-sphere','rubber-duck','miffy'],items=(Array.isArray(kind)?kind:[kind]).map(name=>{const resolved=aliases[name]||name;return allowed.includes(resolved)?resolved:'blue-sphere'});this.specs.push({ kind:items, options, baseSeed:options.seed??++this.seed*13.37+Math.random()*1000, births:0 }) }
   /** Clear user-defined shape families and active particles on a live recompilation. */
   clear(): void { this.specs = []; this.shapes = [] }
   beginTransaction():void{this.previousSpecs=[...this.specs];this.previousShapes=[...this.shapes];this.specs=[];this.shapes=[]}
@@ -30,14 +35,18 @@ export class ShapeField {
   rollbackTransaction():void{if(this.previousSpecs){this.specs=this.previousSpecs;this.shapes=this.previousShapes||[];this.previousSpecs=null;this.previousShapes=null}}
   /** Spawn every family whose follows source matches the triggering sound. */
   trigger(source: string, strength = 1, enabled?: ReadonlySet<string>): void {
-    for (const spec of this.specs) {
+    const matching=this.specs.filter(spec=>{
       const follows = spec.options.follows
-      if(follows===undefined)continue
-      if(typeof follows!=='string')continue
+      if(typeof follows!=='string'||follows!==source)return false
       const kinds=Array.isArray(spec.kind)?spec.kind:[spec.kind]
-      if(enabled&&!kinds.some(kind=>enabled.has(`${kind}:${follows}`)))continue
-      if (typeof follows === 'string' && follows !== source) continue
+      return !enabled||kinds.some(kind=>enabled.has(`${kind}:${follows}`))
+    })
+    if(!matching.length)return
+    const hit=(this.hitCounts.get(source)||0)+1
+    this.hitCounts.set(source,hit)
+    for (const spec of matching) {
       for (const shape of this.shapes) if (shape.spec === spec) { const a = Math.random() * Math.PI * 2, impulse = strength * (.2 + (spec.options.chaos ?? .5)); shape.vx += Math.cos(a) * impulse; shape.vy += Math.sin(a) * impulse }
+      if(hit%4!==0)continue
       const count = Math.max(1, Math.min(40, Math.floor(spec.options.count ?? 1)))
       for (let i = 0; i < count; i++) this.spawn(spec, strength)
     }
@@ -63,7 +72,8 @@ export class ShapeField {
   private spawn(spec: ShapeSpec, power: number): void {
     const opts = spec.options, seed = spec.baseSeed+spec.births++*17.31, angle = this.random(seed) * Math.PI * 2, velocity = (opts.speed ?? 2) * (.6 + power)
     const list = Array.isArray(spec.kind) ? spec.kind : [spec.kind], kind = list[Math.floor(this.random(seed + 1) * list.length)]
-    this.shapes.push({ kind, x: innerWidth * (.2 + this.random(seed + 2) * .6), y: innerHeight * (.2 + this.random(seed + 3) * .6), vx: Math.cos(angle) * velocity, vy: Math.sin(angle) * velocity, size: kind==='wooden-monkey'?48+this.random(seed+4)*28:18+this.random(seed + 4) * 45, angle: this.random(seed + 5) * 6, spin: this.random(seed + 6) * 2 - 1, age: 0, life: opts.life ?? 520, seed, spec })
+    const imageKind=kind==='wooden-monkey'||kind==='rubber-duck'||kind==='miffy'
+    this.shapes.push({ kind, x: innerWidth * (.2 + this.random(seed + 2) * .6), y: innerHeight * (.2 + this.random(seed + 3) * .6), vx: Math.cos(angle) * velocity, vy: Math.sin(angle) * velocity, size: kind==='wooden-monkey'?58+this.random(seed+4)*34:imageKind?44+this.random(seed+4)*24:18+this.random(seed + 4) * 45, angle: this.random(seed + 5) * 6, spin: this.random(seed + 6) * 2 - 1, age: 0, life: opts.life ?? 520, seed, spec })
     if (this.shapes.length > 1200) this.shapes.splice(0, this.shapes.length - 1200)
   }
   private frame(t: number): void {
@@ -94,6 +104,8 @@ export class ShapeField {
       const g=c.createRadialGradient(-r*.35,-r*.4,r*.04,0,0,r);g.addColorStop(0,'#d5edff');g.addColorStop(.2,'#68b8f4');g.addColorStop(.68,'#2878c9');g.addColorStop(1,'#16457d');c.shadowColor='#8fcafa';c.shadowBlur=glow;c.fillStyle=g;c.beginPath();c.arc(0,0,r,0,Math.PI*2);c.fill();c.restore();return
     }
     if(kind==='wooden-monkey'){if(this.monkeyImage.complete&&this.monkeyImage.naturalWidth)c.drawImage(this.monkeyImage,-r,-r,size,size);c.restore();return}
+    if(kind==='rubber-duck'){if(this.duckImage.complete&&this.duckImage.naturalWidth)c.drawImage(this.duckImage,-r,-r,size,size);c.restore();return}
+    if(kind==='miffy'){if(this.miffyImage.complete&&this.miffyImage.naturalWidth)c.drawImage(this.miffyImage,-r,-r,size,size);c.restore();return}
     c.beginPath()
     switch(kind){case 'circle':c.arc(0,0,r,0,Math.PI*2);break;case 'ring':c.arc(0,0,r,0,Math.PI*2);c.arc(0,0,r*.64,0,Math.PI*2,true);break;case 'square':c.rect(-r,-r,size,size);break;case 'line':c.moveTo(-r,0);c.lineTo(r,0);break;case 'cross':c.moveTo(-r,0);c.lineTo(r,0);c.moveTo(0,-r);c.lineTo(0,r);break;default:{const sides=kind==='triangle'?3:kind==='hexagon'?6:kind==='star'?10:5;for(let i=0;i<sides;i++){const rr=kind==='star'&&i%2===1?r*.42:r,a=i/sides*Math.PI*2-Math.PI/2;if(i===0)c.moveTo(Math.cos(a)*rr,Math.sin(a)*rr);else c.lineTo(Math.cos(a)*rr,Math.sin(a)*rr)}c.closePath()}}
     c.stroke();c.restore()

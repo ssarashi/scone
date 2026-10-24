@@ -46,6 +46,8 @@ main(
 
   if (sample.isPlaying()) {
     screen.shapes("monkey", sample)
+    screen.shapes("duck", sample)
+    screen.shapes("miffy", sample)
     screen.scope(sample)
   }
 )
@@ -75,9 +77,9 @@ The waveform lab includes an on-screen piano. Its keys play the current waveform
 | `tempo(bpm)` | Sets tempo from 40 to 240 BPM. |
 | `irand(max)` | Returns an integer from zero through `max - 1`. |
 | `screen.scope(sound)` | Draws the sound’s waveform as a full-window background layer in `#4B3A59`. |
-| `screen.shapes(kind, sound)` | Bounces the hockey puck, wooden monkey, or blue sphere on hits. Kinds: `"puck"`, `"monkey"`, `"spheres"`. |
+| `screen.shapes(kind, sound)` | Bounces a visual object on the sound’s hits. A new object appears at a random position every fourth hit; existing objects get a small impulse on each hit. Kinds: `"puck"`, `"monkey"`, `"spheres"`, `"duck"`, and `"miffy"`. |
 
-The wooden monkey uses the transparent photo cutout at `public/wooden_monkey.png`. The app builds its URL from Vite’s `BASE_URL`, so the image path keeps the `/scone/` project prefix when served from GitHub Pages.
+The wooden monkey, rubber duck, and Miffy use transparent PNG cutouts at `public/wooden_monkey.png`, `public/rubberduck.png`, and `public/miffy.png`. Their image URLs use Vite’s `BASE_URL`, so they load under the `/scone/` project prefix on GitHub Pages. For example, `screen.shapes("duck", sample)` adds a rubber duck and `screen.shapes("miffy", sample)` adds Miffy.
 
 ### Methods returned by `connect`
 
