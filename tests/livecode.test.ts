@@ -69,7 +69,7 @@ it('transforms the shipped starter into executable JavaScript with main-step sta
   const transformed = transformMainBlocks(transformPatternSpeeds(source))
   expect(source).not.toMatch(/^\s*const\s+[A-Z]/m)
   expect(source).not.toMatch(/screen\.spectrum|SampleLive|\blive\s*\(/i)
-  expect(source).toContain('screen.shapes("monkey", sample)')
+  expect(source).toContain('screen.shapes("miffy", sample)')
   expect(readmeStarter?.trim()).toBe(source.trim())
   expect(monkey.subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
   expect(monkey[25]).toBe(6)

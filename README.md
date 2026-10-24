@@ -16,7 +16,6 @@ Open the Vite URL and press **Play** to start. The production site reloads with 
 The same starter loads by default and is in [`examples/scone-starter.js`](examples/scone-starter.js).
 
 ```js
-// An airy, slow synth loop. Press Ctrl+Enter to apply; Play and Pause control transport.
 tempo(82)
 const sampleSound = waveform("softWave", "0.82*sin(2*pi*f*t) + 0.12*sin(4*pi*f*t)")
 const filterForm = filterform("airFilter", "1/(1 + s*(1/(2*pi*1400)))")
@@ -24,13 +23,12 @@ const envelopeForm = envelope("longFade", "(1-t)^1.6")
 
 const melodyOffset = irand(8)
 const melody = pattern(`1(2,8,0) 3(1,8,3) 5(2,8,5) 7(1,8,${melodyOffset})`)
-const sample = connect(sampleSound, melody)
-  .scale("c minor")
+const sample = connect(sampleSound, melody).scale("c ritusen")
   .filter(filterForm)
   .envelope(envelopeForm)
-  .gain(0.38)
-  .delay(0.34)
-const sampleSlow = connect(sampleSound, melody * 0.5).scale("c minor").gain(0.18)
+  .gain(1.38)
+  .delay(1.34)
+const sampleSlow = connect(sampleSound, melody * 0.5).scale("c ritusen").gain(0.18)
 const kickBeat = connect("kick", pattern("(3,16,0)")).gain(0.68)
 const hatBeat = connect("hat", pattern("(7,16,2)")).gain(0.2)
 
@@ -40,13 +38,10 @@ main(
   hatBeat.play()
 
   if (sample.isPlaying() && kickBeat.isPlaying()) {
-    sampleSlow.pause(5)
+    sampleSlow.play()
   }
-  sampleSlow.play()
 
-  if (sample.isPlaying()) {
-    screen.shapes("monkey", sample)
-    screen.shapes("duck", sample)
+  if (sample.isPlaying() == false) {
     screen.shapes("miffy", sample)
     screen.scope(sample)
   }
@@ -77,7 +72,7 @@ The waveform lab includes an on-screen piano. Its keys play the current waveform
 | `tempo(bpm)` | Sets tempo from 40 to 240 BPM. |
 | `irand(max)` | Returns an integer from zero through `max - 1`. |
 | `screen.scope(sound)` | Draws the sound’s waveform as a full-window background layer in `#4B3A59`. |
-| `screen.shapes(kind, sound)` | Bounces a visual object on the sound’s hits. A new object appears at a random position every fourth hit; existing objects get a small impulse on each hit. Kinds: `"puck"`, `"monkey"`, `"spheres"`, `"duck"`, and `"miffy"`. |
+| `screen.shapes(kind, sound)` | Bounces a visual object inside the viewport on the sound’s hits. A new object appears at a random position every fourth hit; existing objects get a small impulse on each hit. The monkey, duck, and Miffy render at least 600 CSS pixels wide. Kinds: `"puck"`, `"monkey"`, `"spheres"`, `"duck"`, and `"miffy"`. |
 
 The wooden monkey, rubber duck, and Miffy use transparent PNG cutouts at `public/wooden_monkey.png`, `public/rubberduck.png`, and `public/miffy.png`. Their image URLs use Vite’s `BASE_URL`, so they load under the `/scone/` project prefix on GitHub Pages. For example, `screen.shapes("duck", sample)` adds a rubber duck and `screen.shapes("miffy", sample)` adds Miffy.
 
