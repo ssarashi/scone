@@ -1,6 +1,6 @@
 # scone
 
-scone is a browser based live-coding sound lab for slow, airy synth music and Euclidean rhythms. Its visuals fill the browser behind a full-width JavaScript editor on a clean `#FAFAFA` background.
+scone is a nerdy sound lab built around live coding. Shape sound by drawing or writing equations for waveforms, filters, and envelopes, then connect those forms to JavaScript rhythms. It is a browser based lab for focused sound design, with a full-window visual canvas behind the editor on a clean `#FAFAFA` background.
 
 ## Run locally
 
@@ -9,13 +9,14 @@ npm install
 npm run dev
 ```
 
-Open the Vite URL and press **Play** to start. Click **Pause** or press **Ctrl+Esc** to pause. Edit code freely; changes stay as drafts until **Ctrl+Enter** applies them. While playing, accepted code takes effect at the next unscheduled sequencer step, not automatically at a bar. **Ctrl+Z**, **Ctrl+C**, and **Ctrl+V** undo, copy, and paste in the editor. A code error keeps the last applied program running.
+Open the Vite URL and press **Play** to start. The production site reloads with the default starter code every time; local development can restore its browser autosave. Click **Pause** or press **Ctrl+Esc** to pause. Edit code freely; changes stay as drafts until **Ctrl+Enter** applies them. While playing, accepted code takes effect at the next unscheduled sequencer step, not automatically at a bar. **Ctrl+Z**, **Ctrl+C**, and **Ctrl+V** undo, copy, and paste in the editor. A code error names its source line and keeps the last applied program running. Each line that triggers a sound briefly highlights on the audio clock.
 
 ## Starter song
 
 The same starter loads by default and is in [`examples/scone-starter.js`](examples/scone-starter.js).
 
 ```js
+// An airy, slow synth loop. Press Ctrl+Enter to apply; Play and Pause control transport.
 tempo(82)
 const sampleSound = waveform("softWave", "0.82*sin(2*pi*f*t) + 0.12*sin(4*pi*f*t)")
 const filterForm = filterform("airFilter", "1/(1 + s*(1/(2*pi*1400)))")
@@ -99,13 +100,13 @@ Pattern multiplication controls speed: `melody * 2` plays twice as fast; `melody
 
 ## Built-in sound kit
 
-These names and aliases are implemented in the built-in audio engine:
+The built-in drum kit contains only basic drum and bass sounds, generated in Web Audio:
 
-- **Kick:** `kick`, `bd`
+- **Bass drum / kick:** `kick`, `bd`, `bass drum`, `bass-drum`
+- **808:** `808`, `bass`
+- **Closed hi-hat:** `hat`, `hihat`, `hh`, `highhat`, `high-hat`, `closedhat`
+- **Open hi-hat:** `openhat`, `open-hat`, `oh`
 - **Snare:** `snare`, `sd`
-- **Hi-hat:** `hat`, `hihat`, `hh`
-- **Clap:** `clap`
-- **808/bass:** `808`, `bass`
-- **Synth voices:** `lead` (the default for other names), `acid`, `supersaw`, `pluck`, `pad`, `bell`
 
+The synth voices are `acid`, `bell` / `bells`, `choir_aahs`, `seashore`, and `crickets`. Basic oscillator voices are `triangle`, `saw`, `sine`, `supersaw`, and `pulse`. Only these built-in voices are accepted by `connect()`. Use `waveform(...)` to draw or calculate a custom oscillator.
 For example, `connect("snare", pattern("(2,16,4)"))` connects the built-in snare to two hits over sixteen steps.

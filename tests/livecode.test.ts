@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { transformMainBlocks, transformPatternSpeeds } from '../src/engine/livecode'
 import { fitWaveEquation } from '../src/engine/waveform-fit'
+import { BUILTIN_SOUND_NAMES } from '../src/engine/audio'
 
 describe('live-code syntax transforms', () => {
   it('runs statement blocks passed to main on each sequencer step', () => {
@@ -62,12 +63,27 @@ it('transforms the shipped starter into executable JavaScript with main-step sta
   const { readFile } = await import('node:fs/promises')
   const { resolve } = await import('node:path')
   const source = await readFile(resolve(process.cwd(), 'examples/scone-starter.js'), 'utf8')
+  const readme = await readFile(resolve(process.cwd(), 'README.md'), 'utf8')
   const monkey = await readFile(resolve(process.cwd(), 'public/wooden_monkey.png'))
+  const readmeStarter = readme.match(/## Starter song[\s\S]*?```js\n([\s\S]*?)```/)?.[1]
   const transformed = transformMainBlocks(transformPatternSpeeds(source))
   expect(source).not.toMatch(/^\s*const\s+[A-Z]/m)
   expect(source).not.toMatch(/screen\.spectrum|SampleLive|\blive\s*\(/i)
   expect(source).toContain('screen.shapes("monkey", sample)')
+  expect(readmeStarter?.trim()).toBe(source.trim())
   expect(monkey.subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
   expect(monkey[25]).toBe(6)
   expect(() => new Function('tempo', 'waveform', 'filterform', 'envelope', 'pattern', 'connect', 'speedPattern', 'main', 'screen', transformed)).not.toThrow()
+})
+
+it('exposes only the requested drum and synth voices', () => {
+  expect(BUILTIN_SOUND_NAMES).toEqual(expect.arrayContaining([
+    'kick', 'bd', '808', 'hat', 'hihat', 'openhat', 'oh', 'snare',
+    'acid', 'bells', 'choir_aahs', 'seashore', 'crickets',
+    'triangle', 'saw', 'sine', 'supersaw', 'pulse',
+  ]))
+  expect(BUILTIN_SOUND_NAMES).not.toContain('clap')
+  expect(BUILTIN_SOUND_NAMES).not.toContain('pluck')
+  expect(BUILTIN_SOUND_NAMES).not.toContain('pad')
+  expect(BUILTIN_SOUND_NAMES).not.toContain('lead')
 })

@@ -1,5 +1,6 @@
 export type PlayOptions = { vol?: number; at?: number; pitch?: number; reverse?: boolean; speed?: number; reverb?: number; start?:number; duration?:number }
 export type Meter = { level: number; fft: Uint8Array<ArrayBuffer>; wave: Uint8Array<ArrayBuffer>; hit: number }
+export const BUILTIN_SOUND_NAMES = ['kick','bd','bass drum','bass-drum','808','bass','hat','hihat','hh','highhat','high-hat','closedhat','openhat','open-hat','oh','snare','sd','acid','bell','bells','choir_aahs','choir-aahs','seashore','crickets','triangle','saw','sine','supersaw','pulse'] as const
 
 /** Owns the Web Audio graph, built-in voices, sample playback, analysis and ducking. */
 export class AudioEngine {
@@ -66,6 +67,8 @@ export class AudioEngine {
 
   /** Register a browser-decoded sample buffer under a name. */
   addSample(name: string, buffer: AudioBuffer): void { this.samples.set(name, buffer) }
+  /** Whether a name belongs to the built-in drum or synth palette. */
+  hasBuiltInSound(name:string):boolean{return BUILTIN_SOUND_NAMES.includes(name.toLowerCase() as typeof BUILTIN_SOUND_NAMES[number])}
   /** Register one cycle of user drawn/equation-defined audio as a pitched wavetable. */
   addWavetable(name:string,cycle:Float32Array):void{if(!this.context)return;const buffer=this.context.createBuffer(1,cycle.length,this.context.sampleRate);buffer.copyToChannel(cycle,0);buffer.getChannelData(0)[cycle.length-1]=buffer.getChannelData(0)[0];this.samples.set(name,buffer);this.wavetables.add(name)}
   /** Remove a sample from the live sound bank. */
@@ -115,12 +118,17 @@ export class AudioEngine {
     const sample = this.samples.get(name)
     if (sample) { this.playBuffer(name, sample, at, velocity, this.wavetables.has(name)?{...options,pitch:2**((midi-69)/12)}:options); return }
     switch (name.toLowerCase()) {
-      case 'kick': case 'bd': this.kick(name, at, velocity, midi); break
+      case 'kick': case 'bd': case 'bass drum': case 'bass-drum': this.kick(name, at, velocity, midi); break
       case 'snare': case 'sd': this.noiseHit(name, at, velocity, 1900, .14); this.tone(name, at, 175, .12, velocity * .35, 'triangle'); break
-      case 'hat': case 'hihat': case 'hh': this.noiseHit(name, at, velocity * .48, 8200, .042); break
-      case 'clap': this.noiseHit(name, at, velocity * .7, 1250, .12); break
+      case 'hat': case 'hihat': case 'hh': case 'highhat': case 'high-hat': case 'closedhat': this.noiseHit(name, at, velocity * .48, 8200, .042); break
+      case 'openhat': case 'open-hat': case 'oh': this.noiseHit(name, at, velocity * .65, 6200, .24); break
       case '808': case 'bass': this.kick(name, at, velocity, midi || 36, .34); break
-      default: this.synth(name, midi, at, velocity, options)
+      case 'bell': case 'bells': this.bells(name,midi,at,velocity); break
+      case 'choir_aahs': case 'choir-aahs': this.choir(name,midi,at,velocity); break
+      case 'seashore': this.seashore(name,at,velocity); break
+      case 'crickets': this.crickets(name,midi,at,velocity); break
+      case 'acid': case 'triangle': case 'saw': case 'sine': case 'supersaw': case 'pulse': this.synth(name, midi, at, velocity, options); break
+      default: throw new Error(`Unknown sound "${name}". Choose a built-in drum or synth voice, or define a waveform first.`)
     }
   }
 
@@ -193,16 +201,20 @@ export class AudioEngine {
   }
   private synth(name: string, midi: number, at: number, velocity: number, options: PlayOptions): void {
     const ctx = this.context!, osc = ctx.createOscillator(), sub = ctx.createOscillator(), filter = ctx.createBiquadFilter(), gain = ctx.createGain(), drive = ctx.createWaveShaper()
-    const speed = Math.max(.1, options.speed ?? 1), hz = 440 * 2 ** ((midi - 69) / 12) * (options.pitch ?? 1), duration = name === 'pad' ? .8 : .19
-    osc.type = name === 'bell' ? 'sine' : name === 'pluck' ? 'triangle' : name === 'pad' || name === 'supersaw' ? 'sawtooth' : 'sawtooth'
+    const voice=name.toLowerCase(),speed = Math.max(.1, options.speed ?? 1), hz = 440 * 2 ** ((midi - 69) / 12) * (options.pitch ?? 1), duration = .19
+    if(voice==='triangle')osc.type='triangle';else if(voice==='sine')osc.type='sine';else if(voice==='pulse'){const real=new Float32Array(33),imag=new Float32Array(33);for(let n=1;n<real.length;n++){real[n]=Math.sin(2*Math.PI*n*.25)/(Math.PI*n);imag[n]=(Math.cos(2*Math.PI*n*.25)-1)/(Math.PI*n)}osc.setPeriodicWave(ctx.createPeriodicWave(real,imag))}else osc.type='sawtooth'
     osc.frequency.setValueAtTime(Math.max(20, hz), at); if (name === '808' || name === 'bass' || name === 'acid') osc.frequency.setTargetAtTime(hz * (options.pitch ?? 1), at + .01, .04)
     sub.type = name === 'supersaw' ? 'sawtooth' : 'square'; sub.frequency.value = hz * (name === 'supersaw' ? 1.006 : 2); sub.detune.value = name === 'supersaw' ? -13 : 0
     filter.type = 'lowpass'; filter.frequency.setValueAtTime(name === 'acid' ? 2400 : name === '808' || name === 'bass' ? 520 : 8400, at); filter.frequency.exponentialRampToValueAtTime(name === 'acid' ? 420 : 1200, at + duration * .75); filter.Q.value = name === 'acid' ? 15 : 7
     const peak=velocity*(name==='808'||name==='bass'?.72:.26);if(!this.applyEnvelope(name,gain,at,duration/speed,peak)){gain.gain.setValueAtTime(.0001, at); gain.gain.exponentialRampToValueAtTime(peak, at + .006); gain.gain.exponentialRampToValueAtTime(.0001, at + duration / speed)}
     const curve = new Float32Array(256); for (let i = 0; i < curve.length; i++) { const x = i * 2 / (curve.length - 1) - 1; curve[i] = Math.tanh(x * (name === '808' || name === 'acid' ? 5 : 2.6)) }
-    drive.curve = curve; drive.oversample = '4x'; osc.connect(filter); if (name === 'supersaw' || name === '808' || name === 'bass') sub.connect(filter); filter.connect(drive); drive.connect(gain); this.route(gain, name, options.reverb ?? 0)
-    osc.start(at); osc.stop(at + duration / speed + .03); if (name === 'supersaw' || name === '808' || name === 'bass') { sub.start(at); sub.stop(at + duration / speed + .03) }
+    drive.curve = curve; drive.oversample = '4x'; osc.connect(filter); if (voice === 'supersaw') sub.connect(filter); filter.connect(drive); drive.connect(gain); this.route(gain, name, options.reverb ?? 0)
+    osc.start(at); osc.stop(at + duration / speed + .03); if (voice === 'supersaw') { sub.start(at); sub.stop(at + duration / speed + .03) }
   }
+  private bells(name:string,midi:number,at:number,velocity:number):void{const ctx=this.context!,hz=440*2**((midi-69)/12),partials:[[number,number],[number,number],[number,number],[number,number]]=[[1,.62],[2.01,.25],[3.9,.11],[6.4,.05]],duration=.95;for(const [ratio,level] of partials){const osc=ctx.createOscillator(),gain=ctx.createGain();osc.type='sine';osc.frequency.value=hz*ratio;const peak=velocity*level;if(!this.applyEnvelope(name,gain,at,duration,peak)){gain.gain.setValueAtTime(.0001,at);gain.gain.exponentialRampToValueAtTime(Math.max(.0002,peak),at+.004);gain.gain.exponentialRampToValueAtTime(.0001,at+duration)}osc.connect(gain);this.route(gain,name);osc.start(at);osc.stop(at+duration+.02)}}
+  private choir(name:string,midi:number,at:number,velocity:number):void{const ctx=this.context!,osc=ctx.createOscillator(),hz=440*2**((midi-69)/12),duration=.8;osc.type='sawtooth';osc.frequency.value=hz;for(const [frequency,level] of [[700,.32],[1100,.24],[2600,.12]] as const){const formant=ctx.createBiquadFilter(),gain=ctx.createGain();formant.type='bandpass';formant.frequency.value=frequency;formant.Q.value=7;const peak=velocity*level;if(!this.applyEnvelope(name,gain,at,duration,peak)){gain.gain.setValueAtTime(.0001,at);gain.gain.exponentialRampToValueAtTime(Math.max(.0002,peak),at+.08);gain.gain.exponentialRampToValueAtTime(.0001,at+duration)}osc.connect(formant);formant.connect(gain);this.route(gain,name)}osc.start(at);osc.stop(at+duration+.02)}
+  private seashore(name:string,at:number,velocity:number):void{const ctx=this.context!,source=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),gain=ctx.createGain(),duration=1.6;source.buffer=this.noise;source.loop=true;filter.type='lowpass';filter.Q.value=.7;filter.frequency.setValueAtTime(350,at);filter.frequency.exponentialRampToValueAtTime(9000,at+duration*.78);gain.gain.setValueAtTime(.0001,at);gain.gain.linearRampToValueAtTime(velocity*.28,at+.16);gain.gain.exponentialRampToValueAtTime(.0001,at+duration);source.connect(filter);filter.connect(gain);this.route(gain,name);source.start(at);source.stop(at+duration+.02)}
+  private crickets(name:string,midi:number,at:number,velocity:number):void{const ctx=this.context!,root=440*2**((midi-69)/12),times=[0,.075,.18,.255];for(let i=0;i<times.length;i++){const start=at+times[i],duration=.038,osc=ctx.createOscillator(),gain=ctx.createGain();osc.type='sine';osc.frequency.setValueAtTime(Math.max(1800,root*8),start);osc.frequency.linearRampToValueAtTime(Math.max(1800,root*10),start+.018);osc.frequency.linearRampToValueAtTime(Math.max(1800,root*8.2),start+duration);gain.gain.setValueAtTime(.0001,start);gain.gain.linearRampToValueAtTime(velocity*.2,start+.002);gain.gain.exponentialRampToValueAtTime(.0001,start+duration);osc.connect(gain);this.route(gain,name);osc.start(start);osc.stop(start+duration+.005)}}
   private playBuffer(name: string, buffer: AudioBuffer, at: number, velocity: number, options: PlayOptions): void {
     const ctx=this.context!,src=ctx.createBufferSource(),gain=ctx.createGain(),wavetable=this.wavetables.has(name),offset=Math.max(0,options.start??0)
     src.buffer=options.reverse?this.reverseBuffer(buffer):buffer
